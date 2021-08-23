@@ -4,4 +4,4 @@
 /build
 /Images
 node_modules
-/node_addons/include/CImg.h
+CImg.h
