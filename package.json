@@ -1,0 +1,23 @@
+{
+	"name": "mainscreen2",
+	"version": "1.0.0",
+	"description": "",
+	"main": "JS/main.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"start": "electron .",
+		"rebuild": "node-gyp rebuild && electron-rebuild",
+		"install": "node-gyp rebuild",
+		"eRebuild": "electron-rebuild",
+		"nRebuild": "node-gyp rebuild"
+	},
+	"author": "",
+	"license": "ISC",
+	"devDependencies": {
+		"electron": "^13.1.6",
+		"electron-rebuild": "^3.1.1"
+	},
+	"dependencies": {
+		"chart.js": "^3.5.0"
+	}
+}

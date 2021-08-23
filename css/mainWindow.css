@@ -1,0 +1,816 @@
+/* 
+Main window dimensions:
+	width: 1200 px
+	height: 900 px
+
+margin and padding syntax: 
+	top left bottom right
+
+grid-template-areas defines where 
+	in grid to place items using keywords
+*/
+/*
+body {
+	border: 1px solid blue;
+	background: white !important;
+}
+
+section {
+	border: 1px solid green;
+}
+
+div {
+	border: 1px solid red;
+	border-radius: 0 !important;
+}
+*/
+
+/* Actual stuff */
+* {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+	font-family: helvetica;
+}
+
+html,
+body {
+	/*background: rgb(74, 85, 114);*/
+	background: hsl(225, 20%, 35%);
+	width: 100%;
+	height: 100%;
+}
+
+body {
+	display: grid;
+	grid-template-columns: 1fr 13fr;
+	grid-template-areas: "TabBar Content";
+	overflow-y: hidden;
+}
+
+label {
+	color: whitesmoke;
+}
+
+#TabBar {
+	grid-area: TabBar;
+	height: 100%;
+	padding: 30px 0;
+	background: hsl(225, 20%, 25%);
+	display: grid;
+	grid-template-rows: 0.5fr repeat(9, 1fr);
+	grid-row-gap: 10px;
+	grid-template-areas:
+		"b0"
+		"NormalMode"
+		"IRMode"
+		"EMonitor"
+		"PostProcessing"
+		"b1"
+		"b1"
+		"b1"
+		"b1"
+		"Settings";
+}
+
+/* Tabs */
+
+.tab {
+	padding: 3px;
+	text-align: center;
+	background: none;
+	border: none;
+	color: hsla(0, 70%, 100%, 0.7);
+}
+.tab:hover {
+	color: white;
+}
+
+.pressed-tab {
+	color: white;
+	border-left: 3px solid white;
+	/*background: hsl(225, 20%, 27%);*/
+}
+
+#NormalMode {
+	grid-area: NormalMode;
+}
+
+#IRMode {
+	grid-area: IRMode;
+}
+
+#EMonitor {
+	grid-area: EMonitor;
+}
+
+#PostProcess {
+	grid-area: PostProcessing;
+}
+
+#Settings {
+	grid-area: Settings;
+}
+
+/* 
+
+
+					Normal Mode Content
+
+
+*/
+
+#NormalModeContent {
+	grid-area: Content;
+	padding: 20px;
+	/*display: grid;*/
+	display: none; /* Set to none so that it looks cleaner on startup */
+	grid-gap: 20px;
+	grid-template-columns: 10fr 9fr;
+	grid-template-rows: 1fr 1fr 3fr 1fr 3fr;
+	grid-template-areas:
+		"TitleSection ImageDisplay"
+		"ScanControls ImageDisplay"
+		"SaveControls ImageDisplay"
+		"RecentScans ImageDisplay"
+		"RecentScans Counters";
+}
+
+.grid {
+	overflow: scroll;
+}
+
+.background-lighter-blue {
+	/*background: rgb(82, 92, 121);*/
+	background: hsl(225, 20%, 40%);
+	border-radius: 7px;
+}
+
+.white-text {
+	color: whitesmoke;
+}
+
+.serif {
+	font-family: Garamond;
+	font-size: 1.4vw;
+}
+
+.square-button {
+	border-radius: 10px;
+	border: none;
+	background: hsla(225, 20%, 10%, 0.6);
+}
+.square-button:hover {
+	background: hsla(225, 20%, 25%, 1);
+	border: 1px solid hsla(0, 100%, 100%, 0.5);
+}
+.square-button:active {
+	background: hsla(225, 20%, 35%, 1);
+	border: 1px solid hsla(0, 100%, 100%, 0.7);
+}
+.square-button:disabled {
+	border: 1px solid hsla(0, 0%, 0%, 0.2);
+	background: hsla(225, 20%, 35%, 0.6);
+	opacity: 0.6;
+}
+
+.input-change,
+.input-read {
+	background: hsla(225, 20%, 80%, 1);
+	border: 1px solid hsla(225, 20%, 10%, 1);
+	border-radius: 3px;
+}
+.input-change:focus-visible {
+	border: 2px solid hsla(225, 20%, 100%, 1);
+	outline: none;
+}
+.input-read:focus-visible {
+	border: 1px solid hsla(225, 20%, 10%, 1);
+	outline: none;
+	outline-offset: 0;
+}
+
+.I0NButton {
+	width: 60%;
+	height: 60%;
+	justify-self: center;
+	border-radius: 100%;
+	border: none;
+	background: hsla(225, 20%, 10%, 0.6);
+	color: whitesmoke;
+}
+.I0NButton:hover {
+	background: hsla(225, 20%, 25%, 1);
+	border: 1px solid hsla(0, 100%, 100%, 0.5);
+}
+.I0NButton:active {
+	background: hsla(225, 20%, 55%, 1);
+	border: 1px solid hsla(0, 100%, 100%, 0.7);
+}
+
+.DisplaySlider {
+	-webkit-appearance: none;
+	background: hsla(225, 20%, 25%, 1);
+	height: 40%;
+	width: 80%;
+	border-radius: 5px;
+	margin-top: 2px;
+}
+
+.DisplaySlider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	height: 20px;
+	width: 20px;
+	border-radius: 20px;
+	background: hsla(225, 20%, 55%, 1);
+	border: 1px solid black;
+}
+/* Slider hover affects are controlled in mainFunctions.js */
+
+.HoverText {
+	padding: 2px;
+	visibility: hidden;
+	background: gray;
+	border: 1px solid red;
+	border-radius: 3px;
+}
+
+.noHover {
+	pointer-events: none;
+}
+
+/* 
+Left Side 
+*/
+
+/* Title Section */
+#TitleSection {
+	grid-area: TitleSection;
+	display: grid;
+	align-items: center;
+}
+#TitleSection h1 {
+	text-align: center;
+	font-size: 3.7vw;
+	font-family: "Libre Baskerville";
+	text-transform: uppercase;
+	color: gainsboro;
+	letter-spacing: 0.1em;
+	text-shadow: black 0 0 5px;
+}
+
+/* Scan Controls */
+#ScanControls {
+	padding: 0 5%;
+	grid-area: ScanControls;
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	grid-template-areas: "StartSave Pause SingleShot";
+	justify-items: center;
+	align-items: center;
+}
+.ScanButton {
+	width: 60%;
+	height: 60%;
+	font-size: 1.3vw;
+}
+.ScanImage {
+	width: 10px;
+	height: 10px;
+}
+#StartSave {
+	grid-area: StartSave;
+}
+#StartButtonText {
+	padding-left: 8px;
+}
+#Pause {
+	grid-area: Pause;
+}
+#PauseButtonText {
+	padding-left: 8px;
+}
+#SingleShot {
+	grid-area: SingleShot;
+}
+
+/* Save Controls */
+#SaveControls {
+	padding: 5px 20px 10px 20px;
+	grid-area: SaveControls;
+	display: grid;
+	grid-gap: 5px 2px;
+	grid-template-rows: 0.7fr 1fr 1.2fr 1.3fr;
+	grid-template-columns: 2fr 1fr 2fr repeat(7, 1fr);
+	grid-template-areas:
+		"CurrentFileName CurrentFileName CurrentFileName b0 b0 b0 b0 Increment Increment Increment"
+		"CurrentFile CurrentFile CurrentFile b1 b1 b1 b1 I0NCounterDown I0NCounter I0NCounterUp"
+		"CWDropdown CWLabel CurrentWavelength NMLabel ConvertedWavelength ConvertedWavelength NMLabel2 CurrentWavenumber CurrentWavenumber WNLabel"
+		"SDLabel SaveDirectory SaveDirectory SaveDirectory SaveDirectory SaveDirectory b4 b4 ChangeSaveDirectory ChangeSaveDirectory";
+	/* bn here is just a blank space */
+	align-items: center;
+}
+#SaveControls h4 {
+	font-size: 1.5vw;
+	text-align: center;
+	align-self: end;
+}
+#SaveControls label {
+	font-size: 1.4vw;
+}
+#SaveControls button {
+	font-size: 1.35vw;
+}
+/* First row: Titles */
+#CurrentFileName {
+	grid-area: CurrentFileName;
+}
+#Increment {
+	grid-area: Increment;
+}
+/* Second row: File Naming */
+#CurrentFile {
+	height: 70%;
+	font-size: 1.3vw;
+	text-align: center;
+	background: inherit;
+	border: 1px solid rgb(62, 71, 95);
+	grid-area: CurrentFile;
+}
+#FileTakenAlert {
+	padding-top: 3px;
+	grid-area: 2 / 3 / span 1 / span 4;
+	display: inline-block;
+	z-index: 5;
+	border: none;
+	align-self: center;
+}
+#FileTakenAlert img {
+	height: 2.2vh;
+	width: 1.8vw;
+}
+#FileTakenAlert:hover .HoverText {
+	visibility: visible;
+}
+#I0NCounterDown {
+	grid-area: I0NCounterDown;
+}
+#I0NCounter {
+	width: 100%;
+	height: 70%;
+	text-align: center;
+	grid-area: I0NCounter;
+}
+#I0NCounterUp {
+	grid-area: I0NCounterUp;
+}
+/* Third row: Current Wavelength */
+#WavelengthMode {
+	grid-area: CWDropdown;
+	height: 50%;
+	padding-left: 3px;
+}
+#WavelengthMode:focus-visible {
+	outline: none;
+}
+#CWLabel {
+	text-align: right;
+	padding-right: 5px;
+	grid-area: CWLabel;
+}
+#CurrentWavelength {
+	text-align: center;
+	width: 100%;
+	height: 60%;
+	grid-area: CurrentWavelength;
+}
+#NMLabel {
+	padding-left: 3px;
+	grid-area: NMLabel;
+}
+#ConvertedWavelength {
+	grid-area: ConvertedWavelength;
+	text-align: center;
+	width: 100%;
+	height: 60%;
+}
+#NMLabel2 {
+	padding-left: 3px;
+	grid-area: NMLabel2;
+}
+#CurrentWavenumber {
+	text-align: center;
+	width: 100%;
+	height: 60%;
+	grid-area: CurrentWavenumber;
+}
+#WNLabel {
+	padding-left: 3px;
+	grid-area: WNLabel;
+}
+/* Fourth row: Save Directory */
+.SaveRow4 {
+	height: 50%;
+	opacity: 0.7;
+	align-self: end;
+}
+#SDLabel {
+	height: 40%;
+	text-align: right;
+	padding-right: 10px;
+	grid-area: SDLabel;
+}
+#SaveDirectory {
+	grid-area: SaveDirectory;
+	background: inherit;
+	padding-left: 10px;
+	border: 1px solid rgb(62, 71, 95);
+}
+#ChangeSaveDirectory {
+	grid-area: ChangeSaveDirectory;
+}
+
+/* Recent Scans */
+#RecentScans {
+	padding: 0 25px 5px 25px;
+	grid-area: RecentScans;
+	display: grid;
+	grid-template-rows: 1fr 5fr;
+}
+#RecentScans header {
+	padding-bottom: 10px;
+	z-index: 5;
+	border-bottom: black;
+	display: grid;
+	grid-template-columns: 1.7fr 1fr 1fr 1fr 1fr;
+}
+#RecentScans h4 {
+	text-align: center;
+	align-self: end;
+	font-size: 1.3vw;
+}
+#RecentScansSection {
+	overflow: scroll;
+	max-height: 260px;
+	display: grid;
+	padding-top: 5px;
+	border: 2px solid rgb(62, 71, 95);
+	grid-template-columns: 1.8fr 1fr 1fr 1fr 1fr;
+	grid-auto-rows: 35px;
+}
+#RecentScans p {
+	text-align: center;
+	font-size: 1.3vw;
+	padding-top: 7px;
+	height: 100%;
+	border-bottom: 1px dotted rgb(62, 71, 95);
+	color: whitesmoke;
+}
+
+/* 
+End left side 
+*/
+
+/* 
+Right Side 
+*/
+
+/* Image Display */
+#ImageDisplay {
+	padding: 3px 5px;
+	display: grid;
+	grid-gap: 10px;
+	grid-area: ImageDisplay;
+	grid-template-rows: 1fr 14fr 1fr;
+	grid-template-columns: 1fr 6fr;
+	grid-template-areas:
+		"Title Title"
+		"Display Display"
+		"Slider Slider";
+	/*"Label Slider";*/
+}
+#ImageDisplay h3 {
+	text-align: center;
+	grid-area: Title;
+	align-self: end;
+}
+#ImageDisplay .Display {
+	height: 52vh;
+	aspect-ratio: 1 / 1;
+	background: white;
+	border-radius: 10px;
+	grid-area: Display;
+	justify-self: center;
+}
+#ImageDisplay label {
+	text-align: center;
+	grid-area: Label;
+	align-self: center;
+	display: none;
+}
+#DisplaySlider1 {
+	grid-area: Slider;
+	justify-self: center;
+}
+
+/* Electron & Frame Counters */
+#Counters {
+	padding: 20px 50px;
+	grid-area: Counters;
+	display: grid;
+	grid-gap: 0 20px;
+	grid-template-rows: 1fr 1fr 1fr 0.8fr;
+	grid-template-columns: 1fr 1fr;
+	grid-template-areas:
+		"TotalFramesLabel TotalFrames"
+		"TotalECountLabel TotalECount"
+		"AvgECountLabel AvgECount"
+		"blank ResetCounters";
+	align-items: center;
+}
+#Counters label {
+	font-size: 1.5vw;
+	text-align: right;
+	z-index: 2;
+}
+#Counters input {
+	font-size: 1.3vw;
+	text-align: center;
+	width: 50%;
+	z-index: 2;
+}
+#TotalFramesLabel {
+	grid-area: TotalFramesLabel;
+}
+#TotalFrames {
+	grid-area: TotalFrames;
+}
+#TotalECountLabel {
+	grid-area: TotalECountLabel;
+}
+#TotalECount {
+	grid-area: TotalECount;
+}
+#AvgECountLabel {
+	grid-area: AvgECountLabel;
+}
+#AvgECount {
+	grid-area: AvgECount;
+}
+#ResetCounters {
+	width: 50%;
+	height: 80%;
+	font-size: 1vw;
+	grid-area: ResetCounters;
+	/*justify-self: center;*/
+	z-index: 2;
+}
+
+/* 
+End right side 
+*/
+
+/* End Normal Mode Content */
+
+/*
+
+
+					e- Monitor Content
+
+
+*/
+
+#EMonitorContent {
+	grid-area: Content;
+	padding: 20px;
+	/*display: grid;*/
+	display: none; /* Set to none so that it looks cleaner on startup */
+	grid-gap: 20px;
+	grid-template-rows: 1fr 5fr;
+	grid-template-columns: 2fr 1fr;
+	grid-template-areas:
+		"Buttons Counters"
+		"Chart Counters";
+}
+
+/* Buttons */
+#EMonitorButtons {
+	padding: 5% 7%;
+	grid-area: Buttons;
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	grid-template-areas: "StartStop Reset";
+	justify-items: center;
+	align-items: center;
+}
+.eChartButton {
+	width: 40%;
+	height: 90%;
+	font-size: 1.3vw;
+}
+.eChartImage {
+	width: 10px;
+	height: 10px;
+}
+#eChartStartStop {
+	grid-area: StartStop;
+}
+#eChartStartButtonText {
+	padding-left: 8px;
+}
+#eChartReset {
+	grid-area: Reset;
+}
+
+/* Chart */
+#EMonitorChart {
+	grid-area: Chart;
+	padding: 20px;
+	display: grid;
+	grid-template-rows: 9fr 0.7fr;
+	grid-template-columns: 0.7fr 9fr;
+	grid-template-areas:
+		"YButtons Chart"
+		"b0 XButtons";
+}
+#eChart {
+	background: lightgray;
+	max-height: 500px;
+	max-width: 600px;
+	border-radius: 10px;
+	border: 1.5px solid black;
+	padding: 10px;
+	grid-area: Chart;
+	align-self: center;
+	justify-self: center;
+}
+#eChartYAxisButtons {
+	grid-area: YButtons;
+	padding: 200px 10px;
+	display: grid;
+	grid-template-rows: 1fr 1.4fr 1fr;
+	align-items: center;
+	justify-items: center;
+}
+#eChartXAxisButtons {
+	grid-area: XButtons;
+	padding: 10px 250px;
+	display: grid;
+	grid-template-columns: 1fr 1.4fr 1fr;
+	align-items: center;
+	justify-items: center;
+}
+.eChartAxis {
+	width: 30px;
+	height: 30px;
+}
+.eChartAxisLabel {
+	text-align: center;
+}
+#eChartYAxis {
+	width: 30px;
+	height: 40px;
+}
+#eChartXAxis {
+	width: 40px;
+	height: 30px;
+}
+
+/* Counters */
+#EMonitorCounters {
+	grid-area: Counters;
+	padding: 20px 20px 70px 20px;
+	display: grid;
+	grid-template-rows: 1.2fr repeat(4, 1fr);
+	grid-template-columns: 2fr 1fr;
+	grid-template-areas:
+		"Title Title"
+		"CCLAvgLabel CCLAvg"
+		"HybridAvgLabel HybridAvg"
+		"TotalAvgLabel TotalAvg"
+		"CalcTimeLabel CalcTime";
+	align-items: center;
+}
+#EMonitorCounters h1 {
+	grid-area: Title;
+	text-align: center;
+	border-bottom: 2px solid whitesmoke;
+}
+.eChartLabel {
+	justify-self: end;
+	text-align: center;
+	width: 90%;
+	padding: 10px;
+}
+.eChartInput {
+	height: 40px;
+	width: 80px;
+	font-size: 1.3vw;
+	text-align: center;
+}
+#eChartCCLAvgLabel {
+	grid-area: CCLAvgLabel;
+}
+#eChartCCLAvg {
+	grid-area: CCLAvg;
+}
+#eChartHybridAvgLabel {
+	grid-area: HybridAvgLabel;
+}
+#eChartHybridAvg {
+	grid-area: HybridAvg;
+}
+#eChartTotalAvgLabel {
+	grid-area: TotalAvgLabel;
+}
+#eChartTotalAvg {
+	grid-area: TotalAvg;
+}
+#eChartCalcTimeLabel {
+	grid-area: CalcTimeLabel;
+}
+#eChartCalcTime {
+	grid-area: CalcTime;
+}
+
+/* End e- Monitor Content */
+
+/*
+
+
+					Settings Content
+
+
+*/
+
+#SettingsContent {
+	grid-area: Content;
+	padding: 40px 40px 0 40px;
+	overflow: scroll;
+	display: none; /* Set to none so that it looks cleaner on startup */
+}
+
+#SettingsContent label {
+	padding: 0 10px 0 30px;
+}
+
+.SettingsNumberInput {
+	width: 8%;
+	height: 25px;
+	text-align: center;
+}
+
+#SettingsContent .UnitLabel {
+	padding: 0 0 0 0;
+}
+
+.SettingsTitle {
+	height: 50px;
+	padding-left: 50px;
+	color: whitesmoke;
+	border-bottom: 1px solid white;
+}
+
+.SettingsSection {
+	padding-left: 40px;
+}
+
+.SettingsSectionTitle {
+	height: 40px;
+	padding-left: 20px;
+	color: whitesmoke;
+	border-bottom: 1px dotted white;
+}
+
+/* Camera Settings */
+
+#Gain {
+	width: 8%;
+}
+
+#GainBoost {
+	width: 20px;
+}
+
+/* Centroid Settings */
+
+/* Save Button */
+
+#SaveButtonSection {
+	padding: 10px;
+	padding-left: 90%;
+}
+
+#SaveSettingsButton {
+	width: 100%;
+	height: 50%;
+}
+
+/* End Settings Content */
+
+/* Get rid of input arrows */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}

@@ -1,0 +1,7 @@
+/PreviousFiles
+/.vscode
+/bin
+/build
+/Images
+node_modules
+/node_addons/include/CImg.h
