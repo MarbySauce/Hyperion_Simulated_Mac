@@ -1,5 +1,5 @@
 /*
- #
+ # Hello
  #  File			: CImg.h
  #					( C++ header file )
  #
