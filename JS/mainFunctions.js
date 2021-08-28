@@ -21,19 +21,19 @@ window.onload = function () {
 
 // Tabs
 NormalMode.onclick = function () {
-	PressTabFn(NormalMode);
+	SwitchTabs(0);
 };
 IRMode.onclick = function () {
-	PressTabFn(IRMode);
+	SwitchTabs(1);
 };
 EMonitor.onclick = function () {
-	PressTabFn(EMonitor);
+	SwitchTabs(2);
 };
 PostProcess.onclick = function () {
-	PressTabFn(PostProcess);
+	SwitchTabs(3);
 };
 Settings.onclick = function () {
-	PressTabFn(Settings);
+	SwitchTabs(4);
 };
 
 /*		Normal Mode		*/
@@ -129,7 +129,7 @@ SaveSettingsButton.onclick = function () {
 
 // Execute various functions on application startup
 function Startup() {
-	DepressTabsFn();
+	SwitchTabs();
 
 	// Get the settings from file
 	ReadSettingsFromFileSync();
@@ -137,9 +137,8 @@ function Startup() {
 	// Apply the settings
 	ApplySettings();
 
-	// Go to Normal Mode tab
-	PressTabFn(NormalMode);
-	//PressTabFn(EMonitor);
+	// Go to Normal Mode tab (ID = 0)
+	SwitchTabs(0);
 
 	// Get todays date (formatted)
 	todaysDate = getFormattedDate();
@@ -166,25 +165,57 @@ function Startup() {
 /*		Tabs		*/
 
 // Depress all of the buttons (to behave like a radio button)
-function DepressTabsFn() {
-	let tablist = [NormalMode, IRMode, EMonitor, PostProcess, Settings];
-	let contentlist = [NormalModeContent, IRModeContent, EMonitorContent, PostProcessContent, SettingsContent];
-	for (let i = 0; i < tablist.length; i++) {
-		tablist[i].classList.remove("pressed-tab");
-		contentlist[i].style.display = "none";
-	}
-}
+// and then activate the tab 'Tab'
+function SwitchTabs(Tab) {
+	// Tab name should be an integer corresponding to the index of tabList
+	// e.g. NormalMode = 0, IRMode = 1, EMonitor = 2, PostProcess = 3, Settings = 4
+	//
+	// If you only want to hide all tabs and show nothing,
+	// call the function with no parameters
 
-// "Press" in a tab by adding the pressed-tab class to it
-function PressTabFn(Tab) {
-	DepressTabsFn();
-	Tab.classList.add("pressed-tab");
-	if (Tab === NormalMode) {
-		NormalModeContent.style.display = "grid";
-	} else if (Tab === EMonitor) {
-		EMonitorContent.style.display = "grid";
-	} else if (Tab === Settings) {
-		SettingsContent.style.display = "grid";
+	// List of each tab section
+	const tabList = [
+		document.getElementById("NormalMode"),
+		document.getElementById("IRMode"),
+		document.getElementById("EMonitor"),
+		document.getElementById("PostProcess"),
+		document.getElementById("Settings"),
+	];
+
+	// Content corresponding to each tab
+	const contentList = [
+		document.getElementById("NormalModeContent"),
+		document.getElementById("IRModeContent"),
+		document.getElementById("EMonitorContent"),
+		document.getElementById("PostProcessContent"),
+		document.getElementById("SettingsContent"),
+	];
+
+	// Set all tabs to be deactivated
+	for (let i = 0; i < tabList.length; i++) {
+		tabList[i].classList.remove("pressed-tab");
+		contentList[i].style.display = "none";
+	}
+
+	// Activate selected tab
+	if (Tab === undefined) {
+		// If no arguments were passed, do not activate any tabs
+		return;
+	} else if (isNaN(Tab)) {
+		// If Tab is not a number, just activate the main page (Normal Mode)
+		tabList[0].classList.add("pressed-tab");
+		contentList[0].style.display = "grid";
+		return;
+	} else if (Tab >= tabList.length || Tab < 0) {
+		// If Tab is too large or negative, just activate main page
+		tabList[0].classList.add("pressed-tab");
+		contentList[0].style.display = "grid";
+		return;
+	} else {
+		// Otherwise activate the selected tab
+		tabList[Tab].classList.add("pressed-tab");
+		contentList[Tab].style.display = "grid";
+		return;
 	}
 }
 
@@ -193,9 +224,41 @@ function PressTabFn(Tab) {
 // Scan Controls
 
 // Start a scan or save it if scan is already started
-function StartSaveButtonFn() {
-	// Change button text
-	if (StartButtonText.innerText === "Start") {
+function StartSaveFile() {
+	/*
+		Still need to finish editing this part (and the rest)
+		Maybe I should make it so that each chunk of code is it's own function?
+		For instance: ToggleStartSaveButton(), TogglePauseButton(), ToggleSingleShotButton(),
+		ToggleScan(), SaveFileInformation(), SaveScanImage(), UpdateRecentFiles(), etc
+
+		Idea is that anything that might be used more than once should be it's own function.
+	*/
+
+	// DOM elements
+	// Start / Save button stuff
+	const startSave = document.getElementById("StartSave");
+	const startButtonImg = document.getElementById("StartButtonImg");
+	const startButtonText = document.getElementById("StartButtonText");
+	// Pause button stuff
+	const pause = document.getElementById("Pause");
+	const pauseButtonImg = document.getElementById("PauseButtonImg");
+	const pauseButtonText = document.getElementById("PauseButtonText");
+	// Single shot button
+	const singleShot = document.getElementById("SingleShot");
+	// Current wavelength input
+	const currentFile = document.getElementById("CurrentFile");
+	const wavelengthMode = document.getElementById("WavelengthMode");
+	const currentWavelength = document.getElementById("CurrentWavelength");
+	const convertedWavelength = document.getElementById("ConvertedWavelength");
+	const currentWavenumber = document.getElementById("CurrentWavenumber");
+
+	// Other variables used
+	let saveFile; // Object describing important information about current scan
+	let currentWL; // current wavelength being used (as float), taken from user input
+
+	if (startButtonText.innerText === "Start") {
+		// Button press indicates a new scan should be started
+
 		// Reset counters
 		ResetCountersButtonFn();
 		totalECount = 0;
@@ -207,35 +270,37 @@ function StartSaveButtonFn() {
 		ScanBool = true;
 
 		// Change button values
-		StartButtonText.innerText = "Save";
-		StartButtonImg.src = "../ImageSrc/Save.png";
-		Pause.disabled = false; // Make Pause button clickable
-		SingleShot.disabled = true; // Disable SS button
-	} else if (StartButtonText.innerText === "Save") {
+		startButtonText.innerText = "Save";
+		startButtonImg.src = "../ImageSrc/Save.png";
+		pause.disabled = false; // Make Pause button clickable
+		singleShot.disabled = true; // Disable SS button
+	} else if (startButtonText.innerText === "Save") {
+		// Button press indicates the current scan should be stopped and saved
+
 		// Stop the scan
 		ScanBool = false;
 
 		// Change button values
-		StartButtonText.innerText = "Start";
-		StartButtonImg.src = "../ImageSrc/Play.png";
-		PauseButtonText.innerText = "Pause"; // Reset pause button text & image
-		PauseButtonImg.src = "../ImageSrc/Pause.png";
-		Pause.disabled = true; // Disable pause button
-		SingleShot.disabled = false; // Enable SS button
+		startButtonText.innerText = "Start";
+		startButtonImg.src = "../ImageSrc/Play.png";
+		pauseButtonText.innerText = "Pause"; // Reset pause button text & image
+		pauseButtonImg.src = "../ImageSrc/Pause.png";
+		pause.disabled = true; // Disable pause button
+		singleShot.disabled = false; // Enable SS button
 
 		// Save scan information
-		let saveFile = {
-			fileName: CurrentFile.value,
-			mode: WavelengthMode.selectedIndex,
-			wavelength: CurrentWavelength.value,
-			converted: ConvertedWavelength.value,
-			wavenumber: CurrentWavenumber.value,
-			totalFrames: TotalFrames.value,
-			totalECount: TotalECount.value,
+		saveFile = {
+			fileName: currentFile.value,
+			mode: wavelengthMode.selectedIndex,
+			wavelength: currentWavelength.value,
+			converted: convertedWavelength.value,
+			wavenumber: currentWavenumber.value,
+			totalFrames: totalFrames.value,
+			totalECount: totalECount.value,
 		};
 		// If photon energies are out of bounds, don't save
-		let WL = parseFloat(CurrentWavelength.value);
-		if (100 > WL || WL > 20000) {
+		currentWL = parseFloat(currentWavelength.value);
+		if (100 > currentWL || currentWL > 20000) {
 			saveFile.wavelength = "";
 		}
 

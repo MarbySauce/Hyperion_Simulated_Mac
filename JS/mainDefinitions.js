@@ -16,20 +16,6 @@ const autoSaveFile = require("../build/Release/autosavefile");
 
 */
 
-// Tabs
-const NormalMode = document.getElementById("NormalMode");
-const IRMode = document.getElementById("IRMode");
-const EMonitor = document.getElementById("EMonitor");
-const PostProcess = document.getElementById("PostProcess");
-const Settings = document.getElementById("Settings");
-
-// Tab content
-const NormalModeContent = document.getElementById("NormalModeContent");
-const IRModeContent = document.getElementById("IRModeContent");
-const EMonitorContent = document.getElementById("EMonitorContent");
-const PostProcessContent = document.getElementById("PostProcessContent");
-const SettingsContent = document.getElementById("SettingsContent");
-
 /* Normal Mode */
 
 // Scan Controls
