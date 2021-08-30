@@ -198,18 +198,10 @@ function SwitchTabs(Tab) {
 	}
 
 	// Activate selected tab
-	if (Tab === undefined) {
-		// If no arguments were passed, do not activate any tabs
-		return;
-	} else if (isNaN(Tab)) {
-		// If Tab is not a number, just activate the main page (Normal Mode)
-		tabList[0].classList.add("pressed-tab");
-		contentList[0].style.display = "grid";
-		return;
-	} else if (Tab >= tabList.length || Tab < 0) {
-		// If Tab is too large or negative, just activate main page
-		tabList[0].classList.add("pressed-tab");
-		contentList[0].style.display = "grid";
+	if (isNaN(Tab) || Tab >= tabList.length || Tab < 0) {
+		// If no arguments were passed, Tab is not a number,
+		// Tab is too large, or Tab is negative,
+		// do not activate any tabs
 		return;
 	} else {
 		// Otherwise activate the selected tab
