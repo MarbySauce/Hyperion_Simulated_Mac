@@ -189,6 +189,7 @@ const SaveSettingsButton = document.getElementById("SaveSettingsButton");
 */
 
 let prevFiles = [];
+let wakeLock = null;
 
 // File information
 let todaysDate;

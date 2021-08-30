@@ -211,6 +211,9 @@ function StartSaveButtonFn() {
 		StartButtonImg.src = "../ImageSrc/Save.png";
 		Pause.disabled = false; // Make Pause button clickable
 		SingleShot.disabled = true; // Disable SS button
+
+		// Keep screen awake
+		requestWakeLock();
 	} else if (StartButtonText.innerText === "Save") {
 		// Stop the scan
 		ScanBool = false;
@@ -256,6 +259,15 @@ function StartSaveButtonFn() {
 				console.log(err);
 			}
 		});
+
+		// Let screen sleep
+		// Wrapped in try-catch in case keeping awake failed
+		try {
+			wakeLock.release();
+			wakeLock = null;
+		} catch (err) {
+			console.log(`Could not let sleep: ${err.name}: ${err.message}`);
+		}
 	}
 }
 
@@ -728,22 +740,22 @@ function checkCurrentFile(current_dir, file_string) {
 function updateRecentFiles(recent_scans_section, saveFile) {
 	let currentMode = saveFile.mode;
 	for (let key in saveFile) {
-		if (currentMode == 0) {
+		if (currentMode === 0) {
 			// If standard detachment setup, only write the inputed value
 			// (i.e. use current wavelength, skip converted wavelength)
-			if (saveFile[key] === saveFile.converted) {
+			if (key == "converted") {
 				continue;
 			}
 		} else {
 			// If not standard setup, only write the converted value
 			// (i.e. use converted wavelength, skip current wavelength)
-			if (saveFile[key] === saveFile.wavelength) {
+			if (key == "wavelength") {
 				continue;
 			}
 		}
 
 		// Skip writing the mode
-		if (saveFile[key] === saveFile.mode) {
+		if (key == "mode") {
 			continue;
 		}
 
@@ -927,4 +939,17 @@ function getAvg(arr) {
 		sum += val;
 	});
 	return sum / arr.length;
+}
+
+// Keep the screen awake
+async function requestWakeLock() {
+	try {
+		wakeLock = await navigator.wakeLock.request();
+		wakeLock.addEventListener("release", () => {
+			console.log("Screen Wake Lock released:", wakeLock.released);
+		});
+		console.log("Screen Wake Lock released:", wakeLock.released);
+	} catch (err) {
+		console.error(`${err.name}, ${err.message}`);
+	}
 }
