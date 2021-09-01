@@ -10,75 +10,7 @@ const Chart = require("chart.js");
 const centroid = require("../build/Release/centroid");
 const autoSaveFile = require("../build/Release/autosavefile");
 
-/*
-
-			DOM Elements			
-
-*/
-
-/* Normal Mode */
-
-// Scan Controls
-const StartSave = document.getElementById("StartSave"); // Button
-const Pause = document.getElementById("Pause"); // Button
-const SingleShot = document.getElementById("SingleShot"); // Button
-
-const StartButtonImg = document.getElementById("StartButtonImg");
-const PauseButtonImg = document.getElementById("PauseButtonImg");
-
-const StartButtonText = document.getElementById("StartButtonText");
-const PauseButtonText = document.getElementById("PauseButtonText");
-
-// Save Controls
-const CurrentFile = document.getElementById("CurrentFile"); // Text box
-const I0NCounter = document.getElementById("I0NCounter"); // Text box
-const WavelengthMode = document.getElementById("WavelengthMode"); // Dropdown
-const CurrentWavelength = document.getElementById("CurrentWavelength"); // Text box
-const ConvertedWavlength = document.getElementById("ConvertedWavelength"); // Text box
-const CurrentWavenumber = document.getElementById("CurrentWavenumber"); // Text box
-const ChangeSaveDirectory = document.getElementById("ChangeSaveDirectory"); // Text box
-const I0NCounterUp = document.getElementById("I0NCounterUp"); // Button
-const I0NCounterDown = document.getElementById("I0NCounterDown"); // Button
-const SaveDirectory = document.getElementById("SaveDirectory"); // Button
-const FileTakenAlert = document.getElementById("FileTakenAlert"); // Div with Image
-
-// Recent Scans
-const RecentScansSection = document.getElementById("RecentScansSection"); // Paragraph section
-
-// Display
-const Display = document.getElementById("Display"); // Canvas
-const DisplayContext = Display.getContext("2d"); // Canvas context
-let DisplayData; // Image data
-let DisplayBuffer; // Buffer
-const DisplaySlider = document.getElementById("DisplaySlider1");
-const Sliders = document.getElementsByClassName("DisplaySlider"); // Input ranges
-
-// Electron Counters
-const TotalFrames = document.getElementById("TotalFrames"); // Text box
-const TotalECount = document.getElementById("TotalECount"); // Text box
-const AvgECount = document.getElementById("AvgECount"); // Text box
-const ResetCounters = document.getElementById("ResetCounters"); // Button
-
-/* e- Monitor */
-
-// Buttons
-const eChartStartStop = document.getElementById("eChartStartStop"); // Button
-const eChartStartButtonImg = document.getElementById("eChartStartButtonImg"); // Image
-const eChartStartButtonText = document.getElementById("eChartStartButtonText"); // Text (span)
-const eChartReset = document.getElementById("eChartReset"); // Button
-
-// Chart Axes Buttons
-const eChartYAxisUp = document.getElementById("eChartYAxisUp"); // Button
-const eChartYAxis = document.getElementById("eChartYAxis"); // Text box
-const eChartYAxisDown = document.getElementById("eChartYAxisDown"); // Button
-const eChartXAxisUp = document.getElementById("eChartXAxisUp"); // Button
-const eChartXAxis = document.getElementById("eChartXAxis"); // Text box
-const eChartXAxisDown = document.getElementById("eChartXAxisDown"); // Button
-
-// Chart
-const eChartElement = document.getElementById("eChart");
-const eChartContext = eChartElement.getContext("2d");
-let eChart = new Chart(eChartContext, {
+const eChart = new Chart(eChartContext, {
 	type: "line",
 	data: {
 		datasets: [
@@ -115,15 +47,7 @@ let eChart = new Chart(eChartContext, {
 	},
 });
 
-// Counters
-const eChartCCLAvg = document.getElementById("eChartCCLAvg"); // Text box
-const eChartHybridAvg = document.getElementById("eChartHybridAvg"); // Text box
-const eChartTotalAvg = document.getElementById("eChartTotalAvg"); // Text box
-const eChartCalcTime = document.getElementById("eChartCalcTime"); // Text box
-
-/* Settings */
-
-let SettingsList = {
+const settingsList = {
 	Camera: {
 		AoIx: 0,
 		AoIy: 0,
@@ -146,49 +70,112 @@ let SettingsList = {
 	},
 };
 
-// Camera Settings
-const AoIx = document.getElementById("AoIx");
-const AoIy = document.getElementById("AoIy");
-const xOffset = document.getElementById("xOffset");
-const yOffset = document.getElementById("yOffset");
-const ExposureTime = document.getElementById("ExposureTime");
-const Gain = document.getElementById("Gain");
-const GainBoost = document.getElementById("GainBoost");
-const InternalTrigger = document.getElementById("InternalTrigger");
-const RisingEdge = document.getElementById("RisingEdge");
-const FallingEdge = document.getElementById("FallingEdge");
-const TriggerDelay = document.getElementById("TriggerDelay");
+const scanCounters = {
+	frameCount: 0,
+	cclCount: 0,
+	hybridCount: 0,
+	totalCount: 0,
+	update: function (calculatedCenters) {
+		let ccl = calculatedCenters[0].length;
+		let hybrid = calculatedCenters[1].length;
+		let total = ccl + hybrid;
+		// Add to counts
+		this.cclCount += ccl;
+		this.hybridCount += hybrid;
+		this.totalCount += total;
+		this.frameCount++;
+	},
+	reset: function () {
+		this.frameCount = 0;
+		this.cclCount = 0;
+		this.hybridCount = 0;
+		this.totalCount = 0;
+	},
+	getFrames: function () {
+		// Returns frame count as Xk (e.g. 11k for 11,000 frames)
+		// unless frame count is below 1,000
+		let frameString;
+		if (this.frameCount >= 1000) {
+			frameString = Math.round(this.frameCount / 1000) + "k";
+		} else {
+			frameString = this.frameCount.toString();
+		}
+		return frameString;
+	},
+	getTotalCount: function () {
+		// Returns total electron count in scientific notation
+		// unless total count is below 10,000
+		let countString;
+		if (this.totalCount >= 10000) {
+			countString = this.totalCount.toExponential(3).toString();
+			// Get rid of '+' in exponent
+			countString = countString.substr(0, countString.length - 2) + countString.slice(-1);
+		} else {
+			countString = this.totalCount.toString();
+		}
+		return countString;
+	},
+};
 
-// Centroid Settings
-const RawAccumulation = document.getElementById("RawAccumulation");
-const CentroidAccumulation = document.getElementById("CentroidAccumulation");
-const HybridMethod = document.getElementById("HybridMethod");
-const CentroidBinSize = document.getElementById("CentroidBinSize");
-
-// Save button
-const SaveSettingsButton = document.getElementById("SaveSettingsButton");
-
-/* 			
-
-		Other global variables 			
-
-*/
+const averageCount = {
+	prevCCLCounts: [],
+	prevHybridCounts: [],
+	prevTotalCounts: [],
+	updateCounter: 0, // Used to keep track of how many frames have
+	// been processed since the last time avg display was updated
+	update: function (calculatedCenters) {
+		let ccl = calculatedCenters[0].length;
+		let hybrid = calculatedCenters[1].length;
+		let total = ccl + hybrid;
+		// Add to respective arrays
+		this.prevCCLCounts.push(ccl);
+		this.prevHybridCounts.push(hybrid);
+		this.prevTotalCounts.push(total);
+		// Make sure arrays are only 10 frames long
+		// by removing earliest frame
+		while (this.prevCCLCounts > 10) {
+			this.prevCCLCounts.shift();
+		}
+		while (this.prevHybridCounts > 10) {
+			this.prevHybridCounts.shift();
+		}
+		while (this.prevTotalCounts > 10) {
+			this.prevTotalCounts.shift();
+		}
+	},
+	increaseUpdateCounter: function () {
+		// Not a necessary function but I think it makes
+		// the code more readable
+		this.updateCounter++;
+	},
+	getAverage: function (arr) {
+		// Calculates the average value of the arrays
+		const sum = arr.reduce((accumulator, currentValue) => {
+			return accumulator + currentValue;
+		});
+		return sum;
+	},
+	getCCLAverage: function () {
+		return this.getAverage(this.prevCCLCounts).toFixed(2);
+	},
+	getHybridAverage: function () {
+		return this.getAverage(this.prevHybridCounts).toFixed(2);
+	},
+	getTotalAverage: function () {
+		return this.getAverage(this.prevTotalCounts).toFixed(2);
+	},
+};
 
 let prevFiles = [];
 
 // File information
-let todaysDate;
+// !!! These should be under settingsList
 let currentFileSaveDir = "../Images";
 let prevFileSaveDir = "./PreviousFiles";
 
-// Electron counter variables
-let PreviousElectronCounts = [];
-let PreviousCCLCounts = [];
-let PreviousHybridCounts = [];
-
 // Scanning variables
 let AccumulatedImage = Array.from(Array(1024), () => new Array(1024).fill(0)); // Accumulated Image array
-let ScanBool = false;
+let scanBool = false;
 let totalECount = 0;
 
 // eChart variables
