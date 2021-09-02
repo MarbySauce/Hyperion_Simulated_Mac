@@ -48,25 +48,29 @@ const eChart = new Chart(eChartContext, {
 });
 
 const settingsList = {
-	Camera: {
-		AoIx: 0,
-		AoIy: 0,
+	camera: {
+		xAoI: 0,
+		yAoI: 0,
 		xOffset: 0,
 		yOffset: 0,
-		ExposureTime: 0,
-		Gain: 0,
-		GainBoost: false,
-		Trigger: "Rising Edge",
-		TriggerDelay: 0,
+		exposureTime: 0,
+		gain: 0,
+		gainBoost: false,
+		trigger: "Rising Edge",
+		triggerDelay: 0,
 	},
 	Centroid: {
-		Accumulation: "Centroid",
-		HybridMethod: true,
-		BinSize: 100,
+		accumulation: "Centroid",
+		hybridMethod: true,
+		binSize: 100,
 	},
 	eChart: {
-		MaxYAxis: 20,
-		MaxXAxis: 30,
+		yAxisMax: 20,
+		xAxisMax: 30,
+	},
+	saveDirectory: {
+		currentScan: "../Images",
+		previousScans: "./PreviousScans",
 	},
 };
 
@@ -166,17 +170,17 @@ const averageCount = {
 	},
 };
 
-let prevFiles = [];
+//let prevFiles = [];
+let previousScans = [];
 
 // File information
 // !!! These should be under settingsList
-let currentFileSaveDir = "../Images";
-let prevFileSaveDir = "./PreviousFiles";
+//let currentFileSaveDir = "../Images";
+//let prevFileSaveDir = "./PreviousFiles";
 
 // Scanning variables
-let AccumulatedImage = Array.from(Array(1024), () => new Array(1024).fill(0)); // Accumulated Image array
+let mainAccumulatedImage = Array.from(Array(1024), () => new Array(1024).fill(0)); // Accumulated Image array
 let scanBool = false;
-let totalECount = 0;
 
 // eChart variables
 let eChartBool = false;

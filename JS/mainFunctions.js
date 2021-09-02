@@ -62,10 +62,10 @@ I0NCounterUp.onclick = function () {
 	I0NCounterUp();
 };
 WavelengthMode.oninput = function () {
-	WavelengthInputFn();
+	ConvertWavelengthInput();
 };
 CurrentWavelength.oninput = function () {
-	WavelengthInputFn();
+	ConvertWavelengthInput();
 };
 ChangeSaveDirectory.onclick = function () {
 	// Send message to main process to update directory
@@ -76,19 +76,20 @@ ChangeSaveDirectory.onclick = function () {
 
 // Control slider's display
 DisplaySlider.onmouseover = function () {
-	SliderMouseOverFn(0);
+	MainSliderMouseOverFn();
 };
 DisplaySlider.onmouseout = function () {
-	SliderMouseOutFn(0);
+	MainSliderMouseOutFn();
 };
 DisplaySlider.oninput = function () {
-	DisplaySliderFn(); // Update image contrast
+	MainDisplaySliderFn(); // Update image contrast
 	SliderMouseOverFn(0);
 };
 
 // Electron Counters
 ResetCounters.onclick = function () {
-	ResetCountersButtonFn();
+	scanCounters.reset();
+	UpdateScanCountDisplays();
 };
 
 /*		e- Monitor		*/
@@ -338,8 +339,8 @@ function SaveScanInformation() {
 		wavelength: currentWavelength.value,
 		converted: convertedWavelength.value,
 		wavenumber: currentWavenumber.value,
-		totalFrames: totalFrames.value, // Should use an object to store these instead
-		totalECount: totalECount.value, // and functions to format appropriately
+		totalFrames: scanCounters.getFrames(),
+		totalECount: scanCounters.getTotalCount(),
 	};
 	// If photon energies are out of bounds, don't save
 	currentWL = parseFloat(currentWavelength.value);
@@ -421,7 +422,7 @@ function I0NCounterUp() {
 }
 
 // Convert photon energy based on detachment laser setup
-function WavelengthInputFn() {
+function ConvertWavelengthInput() {
 	const wavelengthMode = document.getElementById("WavelengthMode");
 	const currentWavelength = document.getElementById("CurrentWavelength");
 	const convertedWavelength = document.getElementById("ConvertedWavelength");
@@ -489,43 +490,57 @@ function convertWNtoNM(wavenumber) {
 }
 
 // Update Accumulated Image contrast
-function DisplaySliderFn() {
-	let contrastValue = parseFloat(DisplaySlider.value);
+function MainDisplaySliderFn() {
+	// Could change this to be a switch statement for
+	// 0 - main display, 1 - IR off, 2 - IR on, 3 - difference
+	// Same for MouseOver and MouseOut
+	const mainDisplayWidth = 1024; // !! Need to make these changeable
+	const mainDisplayHeight = 1024;
+	const mainDisplay = document.getElementById("Display");
+	// !!! Should probably change this ID to MainDisplay
+	const mainDisplayContext = mainDisplay.getContext("2d");
+	const mainDisplayData = mainDisplayContext.getImageData(mainDisplayWidth, mainDisplayHeight, 0, 0);
+	const mainDisplaySlider = document.getElementById("DisplaySlider1");
+	let contrastValue = parseFloat(mainDisplaySlider.value);
 	let contrastIncrement = contrastValue * 100;
-	for (let Y = 0; Y < 1024; Y++) {
-		for (let X = 0; X < 1024; X++) {
-			let AccPixValue = 255 - AccumulatedImage[Y][X] * contrastIncrement;
-			if (AccPixValue > 0) {
-				DisplayData.data[4 * (1024 * Y + X) + 3] = AccPixValue;
+	let accPixValue;
+
+	for (let Y = 0; Y < mainDisplayHeight; Y++) {
+		for (let X = 0; X < mainDisplayWidth; X++) {
+			accPixValue = 255 - mainAccumulatedImage[Y][X] * contrastIncrement;
+			if (accPixValue > 0) {
+				mainDisplayData.data[4 * (mainDisplayWidth * Y + X) + 3] = AccPixValue;
 			} else {
-				DisplayData.data[4 * (1024 * Y + X) + 3] = 0;
+				mainDisplayData.data[4 * (mainDisplayWidth * Y + X) + 3] = 0;
 			}
 		}
 	}
-	DisplayContext.putImageData(DisplayData, 0, 0);
+	mainDisplayContext.putImageData(mainDisplayData, 0, 0);
 }
 
 // Create hover color change for sliders
-function SliderMouseOverFn(sliderIndex) {
-	let value = (100 * (Sliders[sliderIndex].value - Sliders[sliderIndex].min)) / (Sliders[sliderIndex].max - Sliders[sliderIndex].min);
-	let backgroundBlue = "hsla(225, 50%, 65%, 1)";
-	Sliders[sliderIndex].style.background =
-		"linear-gradient(to right, " + backgroundBlue + " 0%, " + backgroundBlue + " " + value + "%, hsla(225, 20%, 25%, 1) 0%)";
+function MainSliderMouseOverFn() {
+	const mainDisplaySlider = document.getElementById("DisplaySlider1");
+	const backgroundBlue = "hsla(225, 50%, 65%, 1)";
+	let sliderValue = (100 * (mainDisplaySlider.value - mainDisplaySlider.min)) / (mainDisplaySlider.max - mainDisplaySlider.min);
+
+	mainDisplaySlider.style.background = `linear-gradient(to right, ${backgroundBlue} 0%, ${backgroundBlue} ${sliderValue}%, hsla(225, 20%, 25%, 1) 0%)`;
 }
 
-function SliderMouseOutFn(sliderIndex) {
-	Sliders[sliderIndex].style.background = "hsla(225, 20%, 25%, 1)";
-}
+function MainSliderMouseOutFn() {
+	const mainDisplaySlider = document.getElementById("DisplaySlider1");
 
-// Electron counters
-
-// Reset electron & frame counters
-function ResetCountersButtonFn() {
-	TotalFrames.value = 0;
-	TotalECount.value = 0;
+	mainDisplaySlider.style.background = "hsla(225, 20%, 25%, 1)";
 }
 
 /*		e- Monitor		*/
+
+/*
+
+Should try adding an eChartData object that does all the update processing,
+and then say 'eChart.data.labels = eChartData.labels' or something
+
+*/
 
 // Start/stop the electron counter chart
 function eChartStartStopFn() {
@@ -764,6 +779,7 @@ function ReadSettingsFromFileSync() {
 function ApplySettings() {
 	// Turn hybrid method on/off
 	ipc.send("HybridMethod", SettingsList.Centroid.HybridMethod);
+	// More stuff for camera control to come
 }
 
 /*
@@ -783,15 +799,19 @@ ipc.on("LVImageUpdate", function (event, obj) {
 	//		calcCenters
 
 	// Update average number of electrons
-	updateAvgECount(obj.calcCenters);
+	//updateAvgECount(obj.calcCenters);
+	averageCount.update(obj.calcCenters);
+	UpdateAverageCountDisplays(); // Need to add this function
 
 	// Only update these if currently taking a scan
 	if (ScanBool) {
 		// Update number of electrons
-		updateECount(obj.calcCenters);
+		//updateECount(obj.calcCenters);
+		scanCounters.update(obj.calcCenters);
+		UpdateScanCountDisplays(); // Need to add this function
 
 		// Update number of frames
-		updateFrameCount();
+		//updateFrameCount();
 
 		// Update Accumulated View
 		updateAccumulatedImage(obj.calcCenters);
@@ -831,7 +851,11 @@ function getFormattedDate() {
 // Format file name as MMDDYY_iXX_1024.i0N
 function getCurrentFileName(ionCounter) {
 	// This one needs a lot of work
-	let fileString = todays_date + "i" + ("0" + ionCounter).slice(-2) + "_1024.i0N";
+	//let fileString = todays_date + "i" + ("0" + ionCounter).slice(-2) + "_1024.i0N";
+	let todaysDate = getFormattedDate();
+	// Slice here makes sure 0 is not included if ionCounter > 9
+	let increment = ("0" + ionCounter).slice(-2);
+	let fileString = `${todaysDate}i${increment}_1024.i0N`;
 	let checked = checkCurrentFile(current_dir, fileString);
 	// Make Alert system it's own function
 	if (checked) {
@@ -986,34 +1010,4 @@ function updateAvgECount(calcCenters) {
 
 	// Update average update counter
 	avgUpdateCounter++;
-}
-
-// Update total frame counter
-function updateFrameCount() {
-	let totalFrames = parseFloat(TotalFrames.value);
-	totalFrames++;
-	TotalFrames.value = totalFrames;
-}
-
-// Get num in scientific notation
-function getSciNot(num, decimalPlaces) {
-	// Default decimal places is 3;
-	let decPlaces = decimalPlaces || 3;
-	if (num < 1) {
-		// If exponent is negative, do nothing
-		return num.toExponential(decPlaces).toString();
-	} else {
-		numStr = num.toExponential(decPlaces).toString();
-		numStr = numStr.substr(0, numStr.length - 2) + numStr.slice(-1);
-		return numStr;
-	}
-}
-
-// Get average value of an array
-function getAvg(arr) {
-	let sum = 0;
-	arr.forEach(function (val) {
-		sum += val;
-	});
-	return sum / arr.length;
 }
