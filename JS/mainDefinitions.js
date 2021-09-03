@@ -47,6 +47,8 @@ const eChart = new Chart(eChartContext, {
 	},
 });
 
+const eChartData 
+
 const settingsList = {
 	camera: {
 		xAoI: 0,
@@ -74,11 +76,18 @@ const settingsList = {
 	},
 };
 
-const scanCounters = {
+const scanInfo = {
+	running: false,
 	frameCount: 0,
 	cclCount: 0,
 	hybridCount: 0,
 	totalCount: 0,
+	startScan: function () {
+		this.running = true;
+	},
+	stopScan: function () {
+		this.running = false;
+	},
 	update: function (calculatedCenters) {
 		let ccl = calculatedCenters[0].length;
 		let hybrid = calculatedCenters[1].length;
@@ -120,6 +129,120 @@ const scanCounters = {
 		return countString;
 	},
 };
+
+const accumulatedImage = {
+	originalWidth: 768, // Size of captured image (px)
+	originalHeight: 768,
+	width: 1024, // Size of accumulated image (px)
+	height: 1024,
+	normal: Array.from(Array(this.height), () => new Array(this.width).fill(0)),
+	irOff: Array.from(Array(this.height), () => new Array(this.width).fill(0)),
+	irOn: Array.from(Array(this.height), () => new Array(this.width).fill(0)),
+	irDifference: Array.from(Array(this.height), () => new Array(this.width).fill(0)),
+	differenceFrequency: 20, // Number of frames before the difference image is calculated
+	differenceCounter: 0, // Counter of number of frames since last diff image calculation
+	update: function (image, calculatedCenters) {
+		// image is an index indicating which accumulated image to add to
+		// 0 = normal mode, 1 = IR off, 2 = IR on
+		let numberOfCenters;
+		let xCenter;
+		let yCenter;
+		for (let centroidMethod = 0; centroidMethod < 2; centroidMethod++) {
+			numberOfCenters = calculatedCenters[centroidMethod].length;
+			for (let center = 0; center < numberOfCenters; center++) {
+				xCenter = calculatedCenters[centroidMethod][centroidMethod][0];
+				yCenter = calculatedCenters[centroidMethod][centroidMethod][1];
+				// Expand image to correct bin size and round
+				xCenter = Math.round((xCenter * this.originalWidth) / this.width);
+				yCenter = Math.round((yCenter * this.originalWidth) / this.width);
+				// Use switch to decide which image to add spots to
+				switch (image) {
+					case 0:
+						// Add to normal mode image
+						this.normal[yCenter][xCenter]++;
+						break;
+					
+					case 1:
+						// Add to IR off image
+						this.irOff[yCenter][xCenter]++;
+						break;
+					
+					case 2:
+						// Add to IR on image
+						this.irOn[yCenter][xCenter]++;
+						break;
+				}
+			}
+		}
+	},
+	getDifference: function() {
+		// Calculates the difference image for IR 
+		// i.e. IR on image - IR off image
+		let pixelDifference;
+		if (this.differenceCounter === this.differenceFrequency) {
+			for (let Y = 0; Y < this.height; Y++) {
+				for (let X = 0; X < this.height; X++) {
+					pixelDifference = this.irOn[Y][X] - this.irOff[Y][X];
+					this.irDifference[Y][X] = pixelDifference;
+				}
+			}
+			// Reset difference counter
+			this.differenceCounter = 0;
+		} else {
+			// Tick the difference counter by 1 frame
+			this.differenceCounter++;
+		}
+	},
+	reset: function (image) {
+		// Resets the selected accumulated image
+		// image => 0 = normal mode, 1 = IR off, 2 = IR on
+		// calling with no argument resets all three
+		for (let Y = 0; Y < this.height; Y++) {
+			switch (image) {
+				case 0:
+					// Reset normal image
+					this.normal[Y].fill(0);
+					break;
+				
+				case 1:
+					// Reset IR off
+					this.irOff[Y].fill(0);
+					break;
+				
+				case 2:
+					// Reset IR on
+					this.irOn[Y].fill(0);
+					break;
+				
+				default:
+					this.normal[Y].fill(0);
+					this.irOff[Y].fill(0);
+					this.irOn[Y].fill(0);
+					break;
+			}
+		}
+		// Reset the difference counter
+		this.differenceCounter = 0;
+	},
+	setOriginalSize: function(width, height) {
+		// Changes the size parameters of the captured image
+		if (isNaN(width) || isNaN(height)) {
+			// If arguments aren't numbers, do nothing
+			return;
+		}
+		this.originalWidth = width;
+		this.originalHeight = height;
+	},
+	setSize: function(width, height) {
+		// Changes the size parameters of the accumulated image
+		if (isNaN(width) || isNaN(height)) {
+			// If arguments aren't numbers, do nothing
+			return;
+		}
+		this.width = width;
+		this.height = height;
+	}
+}
 
 const averageCount = {
 	prevCCLCounts: [],
@@ -180,7 +303,6 @@ let previousScans = [];
 
 // Scanning variables
 let mainAccumulatedImage = Array.from(Array(1024), () => new Array(1024).fill(0)); // Accumulated Image array
-let scanBool = false;
 
 // eChart variables
 let eChartBool = false;

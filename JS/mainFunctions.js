@@ -266,6 +266,7 @@ function StartSaveFile() {
 function ChangeStartSaveButtonText(scanStatus) {
 	const startButtonImg = document.getElementById("StartButtonImg");
 	const startButtonText = document.getElementById("StartButtonText");
+
 	if (!scanStatus) {
 		// Scan has just been started, change button to "Save"
 		startButtonText.innerText = "Save";
