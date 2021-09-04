@@ -47,7 +47,13 @@ const eChart = new Chart(eChartContext, {
 	},
 });
 
-const eChartData 
+const eChartData = {
+	running: false,
+	xAxisMax: 30,
+	yAxisMax: 20,
+	labels: [],
+	data: [],
+};
 
 const settingsList = {
 	camera: {
@@ -67,8 +73,8 @@ const settingsList = {
 		binSize: 100,
 	},
 	eChart: {
-		yAxisMax: 20,
 		xAxisMax: 30,
+		yAxisMax: 20,
 	},
 	saveDirectory: {
 		currentScan: "../Images",
@@ -161,12 +167,12 @@ const accumulatedImage = {
 						// Add to normal mode image
 						this.normal[yCenter][xCenter]++;
 						break;
-					
+
 					case 1:
 						// Add to IR off image
 						this.irOff[yCenter][xCenter]++;
 						break;
-					
+
 					case 2:
 						// Add to IR on image
 						this.irOn[yCenter][xCenter]++;
@@ -175,8 +181,8 @@ const accumulatedImage = {
 			}
 		}
 	},
-	getDifference: function() {
-		// Calculates the difference image for IR 
+	getDifference: function () {
+		// Calculates the difference image for IR
 		// i.e. IR on image - IR off image
 		let pixelDifference;
 		if (this.differenceCounter === this.differenceFrequency) {
@@ -203,17 +209,17 @@ const accumulatedImage = {
 					// Reset normal image
 					this.normal[Y].fill(0);
 					break;
-				
+
 				case 1:
 					// Reset IR off
 					this.irOff[Y].fill(0);
 					break;
-				
+
 				case 2:
 					// Reset IR on
 					this.irOn[Y].fill(0);
 					break;
-				
+
 				default:
 					this.normal[Y].fill(0);
 					this.irOff[Y].fill(0);
@@ -224,7 +230,7 @@ const accumulatedImage = {
 		// Reset the difference counter
 		this.differenceCounter = 0;
 	},
-	setOriginalSize: function(width, height) {
+	setOriginalSize: function (width, height) {
 		// Changes the size parameters of the captured image
 		if (isNaN(width) || isNaN(height)) {
 			// If arguments aren't numbers, do nothing
@@ -233,7 +239,7 @@ const accumulatedImage = {
 		this.originalWidth = width;
 		this.originalHeight = height;
 	},
-	setSize: function(width, height) {
+	setSize: function (width, height) {
 		// Changes the size parameters of the accumulated image
 		if (isNaN(width) || isNaN(height)) {
 			// If arguments aren't numbers, do nothing
@@ -241,8 +247,8 @@ const accumulatedImage = {
 		}
 		this.width = width;
 		this.height = height;
-	}
-}
+	},
+};
 
 const averageCount = {
 	prevCCLCounts: [],
