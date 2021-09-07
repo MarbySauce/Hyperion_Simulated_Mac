@@ -376,19 +376,19 @@ function updateRecentFiles(saveFile) {
 		if (currentMode == 0) {
 			// If standard detachment setup, only write the inputed value
 			// (i.e. use current wavelength, skip converted wavelength)
-			if (saveFile[key] === saveFile.converted) {
+			if (key == "converted") {
 				continue;
 			}
 		} else {
 			// If not standard setup, only write the converted value
 			// (i.e. use converted wavelength, skip current wavelength)
-			if (saveFile[key] === saveFile.wavelength) {
+			if (key == "wavelength") {
 				continue;
 			}
 		}
 
 		// Skip writing the mode
-		if (saveFile[key] === saveFile.mode) {
+		if (key == "mode") {
 			continue;
 		}
 
