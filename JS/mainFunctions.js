@@ -404,22 +404,25 @@ function updateRecentFiles(saveFile) {
 // Decrease file counter increment by one
 function I0NCounterDown() {
 	const currentFile = document.getElementById("CurrentFile");
-	let currentCount = parseInt(I0NCounter.value);
+	const i0NCounter = document.getElementById("I0NCounter");
+	let currentCount = parseInt(i0NCounter.value);
 
 	if (currentCount > 1) {
 		currentCount -= 1;
 	}
-	I0NCounter.value = currentCount;
-	CurrentFile.value = getCurrentFileName(currentCount);
+	i0NCounter.value = currentCount;
+	currentFile.value = getCurrentFileName(currentCount);
 }
 
 // Increase file counter increment by one
 function I0NCounterUp() {
-	let currentCount = parseInt(I0NCounter.value);
+	const currentFile = document.getElementById("CurrentFile");
+	const i0NCounter = document.getElementById("I0NCounter");
+	let currentCount = parseInt(i0NCounter.value);
 
 	currentCount++;
-	I0NCounter.value = currentCount;
-	CurrentFile.value = getCurrentFileName(currentCount);
+	i0NCounter.value = currentCount;
+	currentFile.value = getCurrentFileName(currentCount);
 }
 
 // Convert photon energy based on detachment laser setup
