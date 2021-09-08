@@ -74,7 +74,7 @@ const eChartData = {
 	updateData: function (calculatedCenters) {
 		this.labels.push(this.frameCount);
 		this.cclData.push(calculatedCenters[0].length);
-		this.hybridData.push(calculatedCenters[1].length);
+		this.hybridData.push(calculatedCenters[0].length + calculatedCenters[1].length);
 		this.frameCount++;
 		this.cleaveData();
 	},
@@ -92,10 +92,13 @@ const eChartData = {
 		}
 	},
 	updateChart: function (echart) {
+		// Update chart vertical max value
+		echart.options.scales.y.max = this.yAxisMax;
+		// Update chart data
 		echart.data.labels = this.labels;
 		echart.data.datasets[0].data = this.cclData;
 		echart.data.datasets[1].data = this.hybridData;
-		echart.update();
+		echart.update("none");
 	},
 	zoomAxis: function (axis, zoomString) {
 		// axis can be either "X" or "Y"
@@ -107,7 +110,7 @@ const eChartData = {
 		if (axis === "X") {
 			currentValue = this.xAxisMax;
 			disableUp = this.xAxisUpDisabled;
-			disableDown = this.yAxisDownDisabled;
+			disableDown = this.xAxisDownDisabled;
 		} else if (axis === "Y") {
 			currentValue = this.yAxisMax;
 			disableUp = this.yAxisUpDisabled;
@@ -254,11 +257,11 @@ const scanInfo = {
 		this.totalCount = 0;
 	},
 	getFrames: function () {
-		// Returns frame count as Xk (e.g. 11k for 11,000 frames)
+		// Returns frame count as "X k" (e.g. 11 k for 11,000 frames)
 		// unless frame count is below 1,000
 		let frameString;
 		if (this.frameCount >= 1000) {
-			frameString = Math.round(this.frameCount / 1000) + "k";
+			frameString = Math.round(this.frameCount / 1000) + " k";
 		} else {
 			frameString = this.frameCount.toString();
 		}
@@ -284,12 +287,15 @@ const accumulatedImage = {
 	originalHeight: 768,
 	width: 1024, // Size of accumulated image (px)
 	height: 1024,
-	normal: Array.from(Array(this.height), () => new Array(this.width).fill(0)),
-	irOff: Array.from(Array(this.height), () => new Array(this.width).fill(0)),
-	irOn: Array.from(Array(this.height), () => new Array(this.width).fill(0)),
-	irDifference: Array.from(Array(this.height), () => new Array(this.width).fill(0)),
+	normal: [],
+	irOff: [],
+	irOn: [],
+	irDifference: [],
 	differenceFrequency: 20, // Number of frames before the difference image is calculated
 	differenceCounter: 0, // Counter of number of frames since last diff image calculation
+	newFunction: function () {
+		console.log(this.normal);
+	},
 	update: function (calculatedCenters) {
 		let numberOfCenters;
 		let xCenter;
@@ -297,8 +303,8 @@ const accumulatedImage = {
 		for (let centroidMethod = 0; centroidMethod < 2; centroidMethod++) {
 			numberOfCenters = calculatedCenters[centroidMethod].length;
 			for (let center = 0; center < numberOfCenters; center++) {
-				xCenter = calculatedCenters[centroidMethod][centroidMethod][0];
-				yCenter = calculatedCenters[centroidMethod][centroidMethod][1];
+				xCenter = calculatedCenters[centroidMethod][center][0];
+				yCenter = calculatedCenters[centroidMethod][center][1];
 				// Expand image to correct bin size and round
 				xCenter = Math.round((xCenter * this.originalWidth) / this.width);
 				yCenter = Math.round((yCenter * this.originalWidth) / this.width);
@@ -327,6 +333,9 @@ const accumulatedImage = {
 		// i.e. IR on image - IR off image
 		let pixelDifference;
 		if (this.differenceCounter === this.differenceFrequency) {
+			// Reset difference image
+			this.irDifference = Array.from(Array(this.height), () => new Array(this.width).fill(0));
+			// Calculate each pixel
 			for (let Y = 0; Y < this.height; Y++) {
 				for (let X = 0; X < this.height; X++) {
 					pixelDifference = this.irOn[Y][X] - this.irOff[Y][X];
@@ -343,30 +352,29 @@ const accumulatedImage = {
 	reset: function (image) {
 		// Resets the selected accumulated image
 		// calling with no argument resets all three
-		for (let Y = 0; Y < this.height; Y++) {
-			switch (image) {
-				case "normal":
-					// Reset normal image
-					this.normal[Y].fill(0);
-					break;
+		switch (image) {
+			case "normal":
+				// Reset normal image
+				this.normal = Array.from(Array(this.height), () => new Array(this.width).fill(0));
+				break;
 
-				case "irOff":
-					// Reset IR off
-					this.irOff[Y].fill(0);
-					break;
+			case "irOff":
+				// Reset IR off
+				this.irOff = Array.from(Array(this.height), () => new Array(this.width).fill(0));
+				break;
 
-				case "irOn":
-					// Reset IR on
-					this.irOn[Y].fill(0);
-					break;
+			case "irOn":
+				// Reset IR on
+				this.irOn = Array.from(Array(this.height), () => new Array(this.width).fill(0));
+				break;
 
-				default:
-					this.normal[Y].fill(0);
-					this.irOff[Y].fill(0);
-					this.irOn[Y].fill(0);
-					break;
-			}
+			default:
+				this.normal = Array.from(Array(this.height), () => new Array(this.width).fill(0));
+				this.irOff = Array.from(Array(this.height), () => new Array(this.width).fill(0));
+				this.irOn = Array.from(Array(this.height), () => new Array(this.width).fill(0));
+				break;
 		}
+
 		// Reset the difference counter
 		this.differenceCounter = 0;
 	},
@@ -417,8 +425,7 @@ const averageCount = {
 		}
 	},
 	increaseUpdateCounter: function () {
-		// Not a necessary function but I think it makes
-		// the code more readable
+		// Not a necessary function but I think it makes the code more readable
 		this.updateCounter++;
 	},
 	getAverage: function (arr) {
@@ -426,7 +433,7 @@ const averageCount = {
 		const sum = arr.reduce((accumulator, currentValue) => {
 			return accumulator + currentValue;
 		});
-		return sum;
+		return sum / arr.length;
 	},
 	getCCLAverage: function () {
 		return this.getAverage(this.prevCCLCounts).toFixed(2);

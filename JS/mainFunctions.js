@@ -115,7 +115,8 @@ document.getElementById("eChartStartStop").onclick = function () {
 };
 document.getElementById("eChartReset").onclick = function () {
 	// Reset button for e- chart
-	eChartReset();
+	eChartData.reset();
+	eChartData.updateChart(eChart);
 };
 
 // Axes Controls
@@ -269,10 +270,11 @@ function StartSaveScan() {
 
 	if (!scanInfo.running) {
 		// Button press indicates a new scan should be started
+		console.log("Started");
 
 		// Reset counters
 		scanInfo.reset();
-		ResetCounterDisplays();
+		UpdateScanCountDisplays();
 
 		// Reset accumulated image
 		accumulatedImage.reset();
@@ -377,19 +379,19 @@ function SaveScanInformation() {
 	}
 
 	// Append to prevFiles
-	prevFiles.push(saveFile);
+	previousScans.push(saveFile);
 
 	// Update Recent File Section
 	updateRecentFiles(saveFile);
 
-	prevFilesJSON = JSON.stringify(prevFiles);
+	prevFilesJSON = JSON.stringify(previousScans);
 
 	// Update Recent Files JSON file
-	fs.writeFile(prevFileSaveDir + "/" + todaysDate + "prevFiles.json", prevFilesJSON, function (err) {
+	/*fs.writeFile(prevFileSaveDir + "/" + todaysDate + "prevFiles.json", prevFilesJSON, function (err) {
 		if (err) {
 			console.log(err);
 		}
-	});
+	});*/
 }
 
 // Update Recent Files Section with recent scan
@@ -603,9 +605,20 @@ function eChartStartStop() {
 function eChartUpdateAxisLabels() {
 	const xAxis = document.getElementById("eChartXAxis");
 	const yAxis = document.getElementById("eChartYAxis");
+	const xAxisUp = document.getElementById("eChartXAxisUp");
+	const xAxisDown = document.getElementById("eChartXAxisDown");
+	const yAxisUp = document.getElementById("eChartYAxisUp");
+	const yAxisDown = document.getElementById("eChartYAxisDown");
 
+	// Write current max axis values
 	xAxis.value = eChartData.xAxisMax;
 	yAxis.value = eChartData.yAxisMax;
+
+	// Disable/enable buttons appropriately
+	xAxisUp.disabled = eChartData.xAxisUpDisabled;
+	xAxisDown.disabled = eChartData.xAxisDownDisabled;
+	yAxisUp.disabled = eChartData.yAxisUpDisabled;
+	yAxisDown.disabled = eChartData.yAxisDownDisabled;
 }
 
 /*		Settings		*/
@@ -714,18 +727,22 @@ ipc.on("LVImageUpdate", function (event, obj) {
 
 	// Update average number of electrons
 	averageCount.update(obj.calcCenters);
-	console.log(obj.calcCenters);
-	console.log(averageCount.prevCCLCounts.length);
 	UpdateAverageCountDisplays();
 
 	// Only update these if currently taking a scan
 	if (scanInfo.running) {
 		// Update number of electrons
-		scanCounters.update(obj.calcCenters);
+		scanInfo.update(obj.calcCenters);
 		UpdateScanCountDisplays();
 
 		// Update Accumulated View
 		accumulatedImage.update(obj.calcCenters);
+	}
+
+	// Update eChart if it's running
+	if (eChartData.running) {
+		eChartData.updateData(obj.calcCenters);
+		eChartData.updateChart(eChart);
 	}
 });
 
@@ -750,7 +767,7 @@ function UpdateScanCountDisplays() {
 	const totalElectrons = document.getElementById("TotalECount");
 
 	totalFrames.value = scanInfo.frameCount;
-	totalElectrons = scanInfo.getTotalCount();
+	totalElectrons.value = scanInfo.getTotalCount();
 }
 
 // Receive message about changing Current File Save Directory
@@ -837,7 +854,7 @@ function startupReadRecentFiles() {
 				WavelengthInputFn();
 				// Update prevFiles
 				for (let i = 0; i < data.length; i++) {
-					prevFiles.push(data[i]);
+					previousScans.push(data[i]);
 					updateRecentFiles(RecentScansSection, data[i]);
 				}
 			});
@@ -945,4 +962,46 @@ function updateAvgECount(calcCenters) {
 
 	// Update average update counter
 	avgUpdateCounter++;
+}
+
+function doit() {
+	let xxx = [
+		[10, 20],
+		[30, 40],
+		[50, 60],
+		[70, 80],
+		[90, 100],
+		[10, 20],
+		[30, 40],
+		[50, 60],
+		[70, 80],
+		[90, 100],
+	];
+	console.time("timer");
+	const display = document.getElementById("Display");
+	const displayContext = display.getContext("2d");
+	let displayData = displayContext.getImageData(0, 0, 1024, 1024);
+	for (let i = 0; i < xxx.length; i++) {
+		let pixValue = 255 - 50;
+		displayData.data[4 * (1024 * xxx[1] + xxx[0]) + 3] = pixValue;
+	}
+	displayContext.putImageData(displayData, 0, 0);
+	console.timeEnd("timer");
+}
+
+function doit2() {
+	console.time("timer");
+	const display = document.getElementById("Display");
+	const displayContext = display.getContext("2d");
+	let displayData = displayContext.getImageData(0, 0, 1024, 1024);
+	for (let Y = 0; Y < 1024; Y++) {
+		for (let X = 0; X < 1024; X++) {
+			if (accumulatedImage.normal[Y][X]) {
+				let pixValue = 255 - 50;
+				displayData.data[4 * (1024 * Y + X) + 3] = pixValue;
+			}
+		}
+	}
+	displayContext.putImageData(displayData, 0, 0);
+	console.timeEnd("timer");
 }
