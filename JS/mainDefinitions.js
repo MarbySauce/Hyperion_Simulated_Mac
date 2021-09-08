@@ -10,7 +10,7 @@ const Chart = require("chart.js");
 const centroid = require("../build/Release/centroid");
 const autoSaveFile = require("../build/Release/autosavefile");
 
-const eChart = new Chart(eChartContext, {
+const eChart = new Chart(document.getElementById("eChart").getContext("2d"), {
 	type: "line",
 	data: {
 		datasets: [
@@ -51,8 +51,147 @@ const eChartData = {
 	running: false,
 	xAxisMax: 30,
 	yAxisMax: 20,
+	xAxisUpDisabled: false,
+	xAxisDownDisabled: false,
+	yAxisUpDisabled: false,
+	yAxisDownDisabled: false,
 	labels: [],
-	data: [],
+	cclData: [],
+	hybridData: [],
+	frameCount: 0,
+	start: function () {
+		this.running = true;
+	},
+	stop: function () {
+		this.running = false;
+	},
+	reset: function () {
+		this.labels = [];
+		this.cclData = [];
+		this.hybridData = [];
+		this.frameCount = 0;
+	},
+	updateData: function (calculatedCenters) {
+		this.labels.push(this.frameCount);
+		this.cclData.push(calculatedCenters[0].length);
+		this.hybridData.push(calculatedCenters[1].length);
+		this.frameCount++;
+		this.cleaveData();
+	},
+	cleaveData: function () {
+		// Make sure chart has fewer data points than xAxisMax
+		// By deleting the first point from each array
+		while (this.labels.length > this.xAxisMax) {
+			this.labels.shift();
+		}
+		while (this.cclData.length > this.xAxisMax) {
+			this.cclData.shift();
+		}
+		while (this.hybridData.length > this.xAxisMax) {
+			this.hybridData.shift();
+		}
+	},
+	updateChart: function (echart) {
+		echart.data.labels = this.labels;
+		echart.data.datasets[0].data = this.cclData;
+		echart.data.datasets[1].data = this.hybridData;
+		echart.update();
+	},
+	zoomAxis: function (axis, zoomString) {
+		// axis can be either "X" or "Y"
+		// zoomString can be either "increase" or "decrease"
+		let currentValue;
+		let disableUp = false;
+		let disableDown = false; // Check if we need to disable buttons
+		// Get current value for given axis
+		if (axis === "X") {
+			currentValue = this.xAxisMax;
+			disableUp = this.xAxisUpDisabled;
+			disableDown = this.yAxisDownDisabled;
+		} else if (axis === "Y") {
+			currentValue = this.yAxisMax;
+			disableUp = this.yAxisUpDisabled;
+			disableDown = this.yAxisDownDisabled;
+		}
+		// Change value accordingly
+		if (zoomString === "increase") {
+			// Enable down button if disabled
+			if (disableDown) {
+				disableDown = false;
+			}
+			// Increase by 1 from 1 to 5
+			if (currentValue < 5) {
+				currentValue += 1;
+			}
+			// Increase by 5 from 5 to 20
+			else if (currentValue < 20) {
+				currentValue += 5;
+			}
+			// Increase by 10 from 20 to 100
+			else if (currentValue < 100) {
+				currentValue += 10;
+			}
+			// Increase by 25 from 100 to 300
+			else if (currentValue < 300) {
+				currentValue += 25;
+			}
+			// Increase by 100 from 300 to 1000
+			else if (currentValue < 1000) {
+				currentValue += 100;
+			}
+			// Make sure it's not more than 1000
+			else {
+				currentValue = 1000;
+			}
+			// Disable up button if value is max'd
+			if (currentValue === 1000) {
+				disableUp = true;
+			}
+		} else if (zoomString === "decrease") {
+			// Enable up button if disabled
+			if (disableUp) {
+				disableUp = false;
+			}
+			// Make sure it's not less than 1
+			if (currentValue <= 1) {
+				currentValue = 1;
+			}
+			// Decrease by 1 from 5 to 1
+			else if (currentValue <= 5) {
+				currentValue -= 1;
+			}
+			// Decrease by 5 from 20 to 5
+			else if (currentValue <= 20) {
+				currentValue -= 5;
+			}
+			// Decrease by 10 from 100 to 20
+			else if (currentValue <= 100) {
+				currentValue -= 10;
+			}
+			// Decrease by 25 from 300 to 100
+			else if (currentValue <= 300) {
+				currentValue -= 25;
+			}
+			// Decrease by 100 from 1000 to 300
+			else if (currentValue <= 1000) {
+				currentValue -= 100;
+			}
+			// Disable down button if value is min'd
+			if (currentValue === 1) {
+				disableDown = true;
+			}
+		}
+		// Apply new values
+		if (axis === "X") {
+			this.xAxisMax = currentValue;
+			this.xAxisUpDisabled = disableUp;
+			this.xAxisDownDisabled = disableDown;
+		} else if (axis === "Y") {
+			this.yAxisMax = currentValue;
+			this.yAxisUpDisabled = disableUp;
+			this.yAxisDownDisabled = disableDown;
+		}
+	},
 };
 
 const settingsList = {
@@ -84,6 +223,7 @@ const settingsList = {
 
 const scanInfo = {
 	running: false,
+	method: "normal", // Can be "normal", "irOff", or "irOn"
 	frameCount: 0,
 	cclCount: 0,
 	hybridCount: 0,
@@ -93,6 +233,9 @@ const scanInfo = {
 	},
 	stopScan: function () {
 		this.running = false;
+	},
+	toggleScan: function () {
+		this.running = !this.running;
 	},
 	update: function (calculatedCenters) {
 		let ccl = calculatedCenters[0].length;
@@ -147,9 +290,7 @@ const accumulatedImage = {
 	irDifference: Array.from(Array(this.height), () => new Array(this.width).fill(0)),
 	differenceFrequency: 20, // Number of frames before the difference image is calculated
 	differenceCounter: 0, // Counter of number of frames since last diff image calculation
-	update: function (image, calculatedCenters) {
-		// image is an index indicating which accumulated image to add to
-		// 0 = normal mode, 1 = IR off, 2 = IR on
+	update: function (calculatedCenters) {
 		let numberOfCenters;
 		let xCenter;
 		let yCenter;
@@ -161,19 +302,19 @@ const accumulatedImage = {
 				// Expand image to correct bin size and round
 				xCenter = Math.round((xCenter * this.originalWidth) / this.width);
 				yCenter = Math.round((yCenter * this.originalWidth) / this.width);
-				// Use switch to decide which image to add spots to
-				switch (image) {
-					case 0:
+				// Use switch statement to decide which image to add spots to
+				switch (scanInfo.method) {
+					case "normal":
 						// Add to normal mode image
 						this.normal[yCenter][xCenter]++;
 						break;
 
-					case 1:
+					case "irOff":
 						// Add to IR off image
 						this.irOff[yCenter][xCenter]++;
 						break;
 
-					case 2:
+					case "irOn":
 						// Add to IR on image
 						this.irOn[yCenter][xCenter]++;
 						break;
@@ -201,21 +342,20 @@ const accumulatedImage = {
 	},
 	reset: function (image) {
 		// Resets the selected accumulated image
-		// image => 0 = normal mode, 1 = IR off, 2 = IR on
 		// calling with no argument resets all three
 		for (let Y = 0; Y < this.height; Y++) {
 			switch (image) {
-				case 0:
+				case "normal":
 					// Reset normal image
 					this.normal[Y].fill(0);
 					break;
 
-				case 1:
+				case "irOff":
 					// Reset IR off
 					this.irOff[Y].fill(0);
 					break;
 
-				case 2:
+				case "irOn":
 					// Reset IR on
 					this.irOn[Y].fill(0);
 					break;
@@ -266,13 +406,13 @@ const averageCount = {
 		this.prevTotalCounts.push(total);
 		// Make sure arrays are only 10 frames long
 		// by removing earliest frame
-		while (this.prevCCLCounts > 10) {
+		while (this.prevCCLCounts.length > 10) {
 			this.prevCCLCounts.shift();
 		}
-		while (this.prevHybridCounts > 10) {
+		while (this.prevHybridCounts.length > 10) {
 			this.prevHybridCounts.shift();
 		}
-		while (this.prevTotalCounts > 10) {
+		while (this.prevTotalCounts.length > 10) {
 			this.prevTotalCounts.shift();
 		}
 	},
@@ -301,18 +441,3 @@ const averageCount = {
 
 //let prevFiles = [];
 let previousScans = [];
-
-// File information
-// !!! These should be under settingsList
-//let currentFileSaveDir = "../Images";
-//let prevFileSaveDir = "./PreviousFiles";
-
-// Scanning variables
-let mainAccumulatedImage = Array.from(Array(1024), () => new Array(1024).fill(0)); // Accumulated Image array
-
-// eChart variables
-let eChartBool = false;
-let frameCounter = 0;
-let avgUpdateCounter = 0;
-let eChartMaxYAxis = 20;
-let eChartMaxXAxis = 30;

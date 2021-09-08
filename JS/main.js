@@ -11,8 +11,10 @@ function createMainWindow() {
 		height: 1000,
 		minWidth: 600,
 		minHeight: 600,
-		x: 1445,
-		y: -150,
+		x: 1480,
+		y: -300,
+		//x: -1850,
+		//y: -200,
 		webPreferences: {
 			nodeIntegration: true,
 			contextIsolation: false,
@@ -20,6 +22,7 @@ function createMainWindow() {
 	});
 
 	win.loadFile("HTML/mainWindow.html");
+	win.webContents.openDevTools();
 
 	return win;
 }
@@ -28,8 +31,10 @@ function createLVWindow() {
 	win = new BrowserWindow({
 		width: 1200,
 		height: 1000,
-		x: 2150,
-		y: 60,
+		x: 2950,
+		y: -300,
+		//x: -900,
+		//y: 50,
 		webPreferences: {
 			nodeIntegration: true,
 			contextIsolation: false,
