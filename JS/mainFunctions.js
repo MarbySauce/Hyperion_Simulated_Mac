@@ -50,12 +50,12 @@ document.getElementById("StartSave").onclick = function () {
 };
 document.getElementById("Pause").onclick = function () {
 	// Pause scan button
+	// Toggle pause status (e.g. if running, pause; if paused, resume)
+	scanInfo.paused = !scanInfo.paused;
 	// Change Pause button text
-	ChangePauseButtonText(scanInfo.running);
+	UpdatePauseButtonText();
 	// Enable/disable Single Shot button
-	ChangeSSButtonStatus(scanInfo.running);
-	// Toggle scan (e.g. if scan is running, stop it)
-	scanInfo.toggleScan();
+	UpdateSSButtonStatus();
 };
 document.getElementById("SingleShot").onclick = function () {
 	// Single shot button
@@ -63,6 +63,10 @@ document.getElementById("SingleShot").onclick = function () {
 };
 
 // Save Controls
+document.getElementById("CurrentFile").oninput = function () {
+	// File name is manually typed
+	scanInfo.updateFileName(document.getElementById("CurrentFile").value);
+};
 document.getElementById("I0NCounterDown").onclick = function () {
 	// Decrease file increment
 	I0NCounterDown();
@@ -73,11 +77,13 @@ document.getElementById("I0NCounterUp").onclick = function () {
 };
 document.getElementById("WavelengthMode").oninput = function () {
 	// Detachment laser setup dropdown menu
-	ConvertWavelengthInput();
+	GetLaserInput();
+	UpdateLaserWavelength();
 };
 document.getElementById("CurrentWavelength").oninput = function () {
 	// Detachment laser wavelength input section
-	ConvertWavelengthInput();
+	GetLaserInput();
+	UpdateLaserWavelength();
 };
 document.getElementById("ChangeSaveDirectory").onclick = function () {
 	// Change Save Directory button
@@ -96,7 +102,7 @@ document.getElementById("DisplaySlider1").onmouseout = function () {
 };
 document.getElementById("DisplaySlider1").oninput = function () {
 	MainDisplaySliderFn(); // Update image contrast
-	SliderMouseOverFn(0);
+	MainSliderMouseOverFn();
 };
 
 // Electron Counters
@@ -167,7 +173,6 @@ document.getElementById("SaveSettingsButton").onclick = function () {
 
 // Execute various functions on application startup
 function Startup() {
-	const currentFile = document.getElementById("CurrentFileName");
 	const saveDirectory = document.getElementById("SaveDirectory");
 	const mainDisplay = document.getElementById("Display");
 	const mainDisplayContext = mainDisplay.getContext("2d");
@@ -181,26 +186,29 @@ function Startup() {
 	// Apply the settings
 	ApplySettings();
 
+	// Update displays
+	eChartUpdateAxisLabels();
+
 	// Go to Normal Mode tab (ID = 0)
 	SwitchTabs(0);
+
+	// Create accumulated image arrays
+	accumulatedImage.reset();
 
 	// Get todays date (formatted)
 	//todaysDate = getFormattedDate();
 
 	// Update CurrentFile and CurrentDirectory displays
-	currentFile.value = getCurrentFileName(settingsList.saveDirectory.currentScan, getFormattedDate());
 	saveDirectory.value = settingsList.saveDirectory.currentScan;
 
 	// Find today's previous files JSON file and read
 	//tartupReadRecentFiles();
+	previousScans.readScans();
 
 	// Fill display and get image data
 	mainDisplayContext.fillstyle = "black";
 	mainDisplayContext.fillRect(0, 0, accumulatedImage.width, accumulatedImage.height);
 	mainDisplayData = mainDisplayContext.getImageData(0, 0, accumulatedImage.width, accumulatedImage.height);
-
-	// Update eChart axis labels
-	eChartUpdateAxisLabels;
 
 	// Start centroiding
 	ipc.send("StartCentroiding", null);
@@ -261,16 +269,11 @@ function SwitchTabs(Tab) {
 
 // Start a scan or save it if scan is already started
 function StartSaveScan() {
-	// Change start/save button values
-	ChangeStartSaveButtonText(scanInfo.running);
-
-	// Disable/enable Pause and SingleShot buttons
-	ChangePauseButtonStatus(scanInfo.running);
-	ChangeSSButtonStatus(scanInfo.running);
+	// Make sure scan is not considered paused
+	scanInfo.paused = false;
 
 	if (!scanInfo.running) {
 		// Button press indicates a new scan should be started
-		console.log("Started");
 
 		// Reset counters
 		scanInfo.reset();
@@ -278,6 +281,7 @@ function StartSaveScan() {
 
 		// Reset accumulated image
 		accumulatedImage.reset();
+		UpdateAccumulatedImageDisplay(true); // Called with 'true' to reset entire image
 
 		// Start centroiding
 		scanInfo.startScan();
@@ -292,24 +296,29 @@ function StartSaveScan() {
 
 		// Tick up increment counter
 		I0NCounterUp();
-
-		// Make sure pause button says "Pause"
-		ChangePauseButtonText(false);
 	}
+
+	// Change start/save and pause button values
+	UpdateStartSaveButtonText();
+	UpdatePauseButtonText();
+
+	// Disable/enable pause and single shot buttons
+	UpdatePauseButtonStatus();
+	UpdateSSButtonStatus();
 }
 
 // Change text of Start/Save Button
 // false scan status means text should change from "Start" to "Save"
-function ChangeStartSaveButtonText(scanStatus) {
+function UpdateStartSaveButtonText() {
 	const startButtonImg = document.getElementById("StartButtonImg");
 	const startButtonText = document.getElementById("StartButtonText");
 
-	if (!scanStatus) {
-		// Scan has just been started, change button to "Save"
+	if (scanInfo.running) {
+		// Scan has been started, change button to "Save"
 		startButtonText.innerText = "Save";
 		startButtonImg.src = "../ImageSrc/Save.png";
 	} else {
-		// Scan has just been saved
+		// Scan has been saved
 		startButtonText.innerText = "Start";
 		startButtonImg.src = "../ImageSrc/Play.png";
 	}
@@ -317,11 +326,15 @@ function ChangeStartSaveButtonText(scanStatus) {
 
 // Change Pause button text
 // true scan status means text should change from "Pause" to "Resume"
-function ChangePauseButtonText(scanStatus) {
+function UpdatePauseButtonText() {
 	const pauseButtonImg = document.getElementById("PauseButtonImg");
 	const pauseButtonText = document.getElementById("PauseButtonText");
 
-	if (scanStatus) {
+	// if paused, change to resume
+	// if not paused, change to pause
+	// if paused and not running, change to pause
+
+	if (scanInfo.paused && scanInfo.running) {
 		// Scan was running, pause button has just been pressed
 		// Change text to "Resume"
 		pauseButtonText.innerText = "Resume";
@@ -334,96 +347,80 @@ function ChangePauseButtonText(scanStatus) {
 }
 
 // Enable/disable Pause button
-function ChangePauseButtonStatus(scanStatus) {
+function UpdatePauseButtonStatus() {
 	const pause = document.getElementById("Pause");
 
-	// If scan has been started (scanStatus = false), enable button
-	// if scan has been saved (scanStatus = true), disable button
-	pause.disabled = scanStatus;
+	// If scan has been started (scanInfo.running = true), enable button
+	// if scan has been saved (scanInfo.running = false), disable button
+	pause.disabled = !scanInfo.running;
 }
 
 // Enable/disable Single Shot button
-function ChangeSSButtonStatus(scanStatus) {
+function UpdateSSButtonStatus() {
 	const singleShot = document.getElementById("SingleShot");
 
-	// If scan has been started (scanStatus = false), disable button
-	// if scan has been saved (scanStatus = true), enable button
-	singleShot.disabled = !scanStatus;
+	// If scan is running, disable button
+	// If scan is running but paused, enable button
+	// If scan is not running, enable button
+	if (scanInfo.running && !scanInfo.paused) {
+		singleShot.disabled = true;
+	} else {
+		singleShot.disabled = false;
+	}
 }
 
 // Save the scan information
 function SaveScanInformation() {
-	const currentFile = document.getElementById("CurrentFile");
-	const wavelengthMode = document.getElementById("WavelengthMode");
-	const currentWavelength = document.getElementById("CurrentWavelength");
-	const convertedWavelength = document.getElementById("ConvertedWavelength");
-	const currentWavenumber = document.getElementById("CurrentWavenumber");
-	let saveFile; // Object describing important information about current scan
-	let currentWL; // current wavelength being used (as float), taken from user input
-	let prevFilesJSON; // JSON string to save recent files
-
-	// Save scan information
-	saveFile = {
-		fileName: currentFile.value,
-		mode: wavelengthMode.selectedIndex,
-		wavelength: currentWavelength.value,
-		converted: convertedWavelength.value,
-		wavenumber: currentWavenumber.value,
-		totalFrames: scanInfo.getFrames(),
-		totalECount: scanInfo.getTotalCount(),
-	};
-	// If photon energies are out of bounds, don't save
-	currentWL = parseFloat(currentWavelength.value);
-	if (100 > currentWL || currentWL > 20000) {
-		saveFile.wavelength = "";
-	}
-
-	// Append to prevFiles
-	previousScans.push(saveFile);
+	// Add this scan to previousScans
+	previousScans.addScan();
 
 	// Update Recent File Section
-	updateRecentFiles(saveFile);
+	UpdateRecentFiles(previousScans.recentScan);
 
-	prevFilesJSON = JSON.stringify(previousScans);
-
-	// Update Recent Files JSON file
-	/*fs.writeFile(prevFileSaveDir + "/" + todaysDate + "prevFiles.json", prevFilesJSON, function (err) {
-		if (err) {
-			console.log(err);
-		}
-	});*/
+	// Save today's previous scans to JSON file
+	previousScans.saveScans();
 }
 
 // Update Recent Files Section with recent scan
-function updateRecentFiles(saveFile) {
+function UpdateRecentFiles(saveFile) {
 	const recentScansSection = document.getElementById("RecentScansSection");
-	let currentMode = saveFile.mode;
-	let tag; // tag and text used for appending <p> elements
+	let currentMode = saveFile.detachmentMode;
+	let tag; // tag, text, and textNode used for appending <p> elements
 	let text;
+	let textNode;
 
 	for (let key in saveFile) {
 		if (currentMode == 0) {
 			// If standard detachment setup, only write the inputed value
-			// (i.e. use current wavelength, skip converted wavelength)
-			if (key == "converted") {
+			// (i.e. use input wavelength, skip converted wavelength)
+			if (key == "convertedWavelength") {
 				continue;
 			}
 		} else {
 			// If not standard setup, only write the converted value
-			// (i.e. use converted wavelength, skip current wavelength)
-			if (key == "wavelength") {
+			// (i.e. use converted wavelength, skip input wavelength)
+			if (key == "inputWavelength") {
 				continue;
 			}
 		}
 
 		// Skip writing the mode
-		if (key == "mode") {
+		if (key == "detachmentMode") {
 			continue;
 		}
 
 		tag = document.createElement("p");
-		text = document.createTextNode(saveFile[key].toString());
-		tag.appendChild(text);
+		if (saveFile[key]) {
+			if (typeof saveFile[key] == "number") {
+				text = saveFile[key].toFixed(3).toString();
+			} else {
+				text = saveFile[key].toString();
+			}
+		} else {
+			text = "";
+		}
+		textNode = document.createTextNode(text);
+		tag.appendChild(textNode);
 		recentScansSection.appendChild(tag);
 	}
 }
@@ -454,60 +451,44 @@ function I0NCounterUp() {
 	currentFile.value = getCurrentFileName(currentCount);
 }
 
-// Convert photon energy based on detachment laser setup
-function ConvertWavelengthInput() {
+// Convert photon energy based on detachment laser setup and user input
+function GetLaserInput() {
+	const wavelengthMode = document.getElementById("WavelengthMode");
+	const currentWavelength = document.getElementById("CurrentWavelength");
+	let mode = wavelengthMode.selectedIndex; // Detachment laser setup mode
+	// 0 is Standard, 1 is Doubled, 2 is Raman Shifter, 3 is IR-DFG
+	let wavelength = parseFloat(currentWavelength.value); // Measured laser wavelength
+
+	// Update laser information
+	laserInfo.updateMode(mode);
+	laserInfo.updateWavelength(wavelength);
+}
+
+// Update laser wavelength displays
+function UpdateLaserWavelength() {
 	const wavelengthMode = document.getElementById("WavelengthMode");
 	const currentWavelength = document.getElementById("CurrentWavelength");
 	const convertedWavelength = document.getElementById("ConvertedWavelength");
-	const currentWavenumber = document.getElementById("CurrentWavenumber");
-	let mode = wavelengthMode.selectedIndex; // Laser setup mode
-	let WL = parseFloat(currentWavelength.value); // current wavelength (nm) as float
-	let NewWL; // What the converted wavelength (nm) will be
-	let WN; // What the converted energy (cm^-1) will be
+	const convertedWavenumber = document.getElementById("CurrentWavenumber");
 
-	if (currentWavelength.value === "") {
-		// No wavelength is entered, so no need to do the rest
-		return;
+	// Convert laser energies based on detachment mode
+	laserInfo.convert();
+
+	// Update displays
+	wavelengthMode.selectedIndex = laserInfo.detachmentMode;
+	if (laserInfo.inputWavelength) {
+		currentWavelength.value = laserInfo.inputWavelength.toFixed(3);
 	}
-
-	// 0 is Standard, 1 is Doubled, 2 is Raman Shifter, 3 is IR-DFG
-	switch (mode) {
-		case 0:
-			// Standard setup, no need to convert wavelengths
-			NewWL = WL;
-			break;
-
-		case 1:
-			// Doubled setup, λ' = λ/2
-			NewWL = WL / 2;
-			break;
-
-		case 2:
-			// Raman Shifter, λ' (cm^-1) = λ (cm^-1) - 4155.201 cm^-1
-			WN = convertNMtoWN(WL); // Convert to cm^-1
-			WN -= 4055.201; // Red-shift
-			NewWL = convertWNtoNM(WN); // Convert back to nm
-			break;
-
-		case 3:
-			// IR-DFG, 1/λ' = 1/λ - 1/1064
-			NewWL = 1 / (1 / WL - 1 / 1064);
-			break;
-	}
-
-	// Convert to wavenumbers
-	if (100 < NewWL && NewWL < 20000 && mode !== 0) {
-		convertedWavelength.value = NewWL.toFixed(3);
-		currentWavenumber.value = convertNMtoWM(NewWL).toFixed(2);
-	} else if (100 < NewWL && NewWL < 20000 && mode === 0) {
-		// Standard laser setup, no need to convert wavelengths
-		convertedWavelength.value = "";
-		currentWavenumber.value = convertNMtoWM(NewWL).toFixed(2);
+	// Need if/else in case input was never defined or standard setup is being used
+	if (laserInfo.convertedWavelength) {
+		convertedWavelength.value = laserInfo.convertedWavelength.toFixed(3);
 	} else {
-		// Photon energy input is out of reasonable bounds
-		// Blank the converted energy text boxes
 		convertedWavelength.value = "";
-		currentWavenumber.value = "";
+	}
+	if (laserInfo.convertedWavenumber) {
+		convertedWavenumber.value = laserInfo.convertedWavenumber.toFixed(3);
+	} else {
+		convertedWavenumber.value = "";
 	}
 }
 
@@ -528,27 +509,24 @@ function convertWNtoNM(wavenumber) {
 
 // Update Accumulated Image contrast
 function MainDisplaySliderFn() {
-	// Could change this to be a switch statement for
-	// 0 - main display, 1 - IR off, 2 - IR on, 3 - difference
-	// Same for MouseOver and MouseOut
-	const mainDisplayWidth = 1024; // !! Need to make these changeable
-	const mainDisplayHeight = 1024;
+	// Need to add functionality so that it works with IR stuff too
+	// Same for mouseover and mouseout
 	const mainDisplay = document.getElementById("Display");
 	// !!! Should probably change this ID to MainDisplay
 	const mainDisplayContext = mainDisplay.getContext("2d");
-	const mainDisplayData = mainDisplayContext.getImageData(mainDisplayWidth, mainDisplayHeight, 0, 0);
+	const mainDisplayData = mainDisplayContext.getImageData(0, 0, accumulatedImage.width, accumulatedImage.height);
 	const mainDisplaySlider = document.getElementById("DisplaySlider1");
 	let contrastValue = parseFloat(mainDisplaySlider.value);
-	let contrastIncrement = contrastValue * 100;
-	let accPixValue;
+	let contrastIncrement = contrastValue * 300;
+	let pixValue;
 
-	for (let Y = 0; Y < mainDisplayHeight; Y++) {
-		for (let X = 0; X < mainDisplayWidth; X++) {
-			accPixValue = 255 - mainAccumulatedImage[Y][X] * contrastIncrement;
-			if (accPixValue > 0) {
-				mainDisplayData.data[4 * (mainDisplayWidth * Y + X) + 3] = AccPixValue;
+	for (let Y = 0; Y < accumulatedImage.height; Y++) {
+		for (let X = 0; X < accumulatedImage.width; X++) {
+			pixValue = 255 - accumulatedImage.normal[Y][X] * contrastIncrement;
+			if (pixValue > 0) {
+				mainDisplayData.data[4 * (accumulatedImage.width * Y + X) + 3] = pixValue;
 			} else {
-				mainDisplayData.data[4 * (mainDisplayWidth * Y + X) + 3] = 0;
+				mainDisplayData.data[4 * (accumulatedImage.width * Y + X) + 3] = 0;
 			}
 		}
 	}
@@ -729,14 +707,15 @@ ipc.on("LVImageUpdate", function (event, obj) {
 	averageCount.update(obj.calcCenters);
 	UpdateAverageCountDisplays();
 
-	// Only update these if currently taking a scan
-	if (scanInfo.running) {
+	// Only update these if currently taking a scan that isn't paused
+	if (scanInfo.running && !scanInfo.paused) {
 		// Update number of electrons
 		scanInfo.update(obj.calcCenters);
 		UpdateScanCountDisplays();
 
 		// Update Accumulated View
 		accumulatedImage.update(obj.calcCenters);
+		UpdateAccumulatedImageDisplay();
 	}
 
 	// Update eChart if it's running
@@ -745,6 +724,33 @@ ipc.on("LVImageUpdate", function (event, obj) {
 		eChartData.updateChart(eChart);
 	}
 });
+
+// Update the accumulated image display
+function UpdateAccumulatedImageDisplay(resetBoolean) {
+	// If function is called with 'true' as argument, resets entire image
+	// Need to add functionality so that it works with IR stuff too
+	const display = document.getElementById("Display");
+	const displayContext = display.getContext("2d");
+	let displayData = displayContext.getImageData(0, 0, accumulatedImage.width, accumulatedImage.height);
+	const displaySlider = document.getElementById("DisplaySlider1");
+	let contrastValue = parseFloat(displaySlider.value);
+	let contrastIncrement = contrastValue * 300;
+	let pixValue;
+
+	for (let Y = 0; Y < accumulatedImage.height; Y++) {
+		for (let X = 0; X < accumulatedImage.width; X++) {
+			if (accumulatedImage.normal[Y][X] || resetBoolean) {
+				pixValue = 255 - accumulatedImage.normal[Y][X] * contrastIncrement;
+				if (pixValue > 0) {
+					displayData.data[4 * (accumulatedImage.width * Y + X) + 3] = pixValue;
+				} else {
+					displayData.data[4 * (accumulatedImage.width * Y + X) + 3] = 0;
+				}
+			}
+		}
+	}
+	displayContext.putImageData(displayData, 0, 0);
+}
 
 // Update the average counters on the e- monitor page
 function UpdateAverageCountDisplays() {
@@ -807,6 +813,9 @@ function getCurrentFileName(ionCounter) {
 	let increment = ("0" + ionCounter).slice(-2);
 	let fileString = `${todaysDate}i${increment}_1024.i0N`;
 	let checked = checkCurrentFile(settingsList.saveDirectory.currentScan, fileString);
+
+	// Update file name in scan information
+	scanInfo.fileName = fileString;
 
 	// Make Alert system it's own function
 	fileTakenAlert = document.getElementById("FileTakenAlert");

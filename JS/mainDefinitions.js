@@ -209,10 +209,13 @@ const settingsList = {
 		trigger: "Rising Edge",
 		triggerDelay: 0,
 	},
-	Centroid: {
+	centroid: {
 		accumulation: "Centroid",
 		hybridMethod: true,
 		binSize: 100,
+	},
+	display: {
+		sliderValue: 0.5,
 	},
 	eChart: {
 		xAxisMax: 30,
@@ -225,20 +228,19 @@ const settingsList = {
 };
 
 const scanInfo = {
-	running: false,
+	running: false, // running does not change if scan is paused
+	paused: false,
 	method: "normal", // Can be "normal", "irOff", or "irOn"
 	frameCount: 0,
 	cclCount: 0,
 	hybridCount: 0,
 	totalCount: 0,
+	fileName: "",
 	startScan: function () {
 		this.running = true;
 	},
 	stopScan: function () {
 		this.running = false;
-	},
-	toggleScan: function () {
-		this.running = !this.running;
 	},
 	update: function (calculatedCenters) {
 		let ccl = calculatedCenters[0].length;
@@ -280,6 +282,10 @@ const scanInfo = {
 		}
 		return countString;
 	},
+	updateFileName: function (fileName) {
+		// Update the name of the file to save the accumulated image to
+		this.fileName = fileName;
+	},
 };
 
 const accumulatedImage = {
@@ -293,9 +299,6 @@ const accumulatedImage = {
 	irDifference: [],
 	differenceFrequency: 20, // Number of frames before the difference image is calculated
 	differenceCounter: 0, // Counter of number of frames since last diff image calculation
-	newFunction: function () {
-		console.log(this.normal);
-	},
 	update: function (calculatedCenters) {
 		let numberOfCenters;
 		let xCenter;
@@ -306,8 +309,8 @@ const accumulatedImage = {
 				xCenter = calculatedCenters[centroidMethod][center][0];
 				yCenter = calculatedCenters[centroidMethod][center][1];
 				// Expand image to correct bin size and round
-				xCenter = Math.round((xCenter * this.originalWidth) / this.width);
-				yCenter = Math.round((yCenter * this.originalWidth) / this.width);
+				xCenter = Math.round((xCenter * this.width) / this.originalWidth);
+				yCenter = Math.round((yCenter * this.height) / this.originalHeight);
 				// Use switch statement to decide which image to add spots to
 				switch (scanInfo.method) {
 					case "normal":
@@ -352,7 +355,8 @@ const accumulatedImage = {
 	reset: function (image) {
 		// Resets the selected accumulated image
 		// calling with no argument resets all three
-		switch (image) {
+		let imageCase = image || "all";
+		switch (imageCase) {
 			case "normal":
 				// Reset normal image
 				this.normal = Array.from(Array(this.height), () => new Array(this.width).fill(0));
@@ -368,7 +372,7 @@ const accumulatedImage = {
 				this.irOn = Array.from(Array(this.height), () => new Array(this.width).fill(0));
 				break;
 
-			default:
+			case "all":
 				this.normal = Array.from(Array(this.height), () => new Array(this.width).fill(0));
 				this.irOff = Array.from(Array(this.height), () => new Array(this.width).fill(0));
 				this.irOn = Array.from(Array(this.height), () => new Array(this.width).fill(0));
@@ -446,5 +450,143 @@ const averageCount = {
 	},
 };
 
-//let prevFiles = [];
-let previousScans = [];
+const laserInfo = {
+	inputWavelength: undefined,
+	detachmentMode: 0, // 0 is Standard, 1 is Doubled, 2 is Raman Shifter, 3 is IR-DFG
+	convertedWavelength: undefined,
+	convertedWavenumber: undefined,
+	updateWavelength: function (wavelength) {
+		// Update input wavelength
+		// wavelength should be a number in units of nm
+		if (100 < wavelength && wavelength < 20000) {
+			this.inputWavelength = wavelength;
+		} else {
+			this.inputWavelength = undefined;
+		}
+	},
+	updateMode: function (mode) {
+		// Update detachment mode based on user input
+		// 0 is Standard, 1 is Doubled, 2 is Raman Shifter, 3 is IR-DFG
+		if (0 <= mode && mode <= 3) {
+			this.detachmentMode = mode;
+		} else {
+			// If mode is out of bounds, default to standard
+			this.detachmentMode = 0;
+		}
+	},
+	convert: function () {
+		// Convert wavelength based on detachment mode
+		// As well as convert to wavenumbers
+		let convertedWavelength;
+
+		if (isNaN(this.inputWavelength)) {
+			// No input wavelength, do nothing
+			return;
+		}
+		// Convert wavelength based on mode
+		switch (this.detachmentMode) {
+			case 0:
+				// Standard setup, no need to convert wavelengths
+				convertedWavelength = undefined;
+				break;
+
+			case 1:
+				// Doubled setup, λ' = λ/2
+				convertedWavelength = this.inputWavelength / 2;
+				break;
+
+			case 2:
+				// Raman shifter, ν' (cm^-1) = ν (cm^-1) - νH2 (cm^-1)
+				// where νH2 (cm^-1) = 4055.201 cm^-1
+				// Equivalent to λ' = (λΗ2 (nm) * λ) / (λΗ2 (nm) - λ (nm))
+				// where λΗ2 (nm) = 2465.969 nm (H2 Raman line)
+				const H2Wavelength = 2465.969;
+
+				convertedWavelength = (H2Wavelength * this.inputWavelength) / (H2Wavelength - this.inputWavelength);
+				break;
+
+			case 3:
+				// IR-DFG, 1/(λ' (nm)) = 1/(λ (nm)) - 1/(λYAG (nm))
+				// equivalent to λ' (nm) = (λYAG (nm) * λ (nm)) / (λYAG (nm) - λ (nm))
+				// where λYAG = 1064 nm (YAG fundamental)
+				const YAGWavelength = 1064;
+
+				convertedWavelength = (YAGWavelength * this.inputWavelength) / (YAGWavelength - this.inputWavelength);
+				break;
+		}
+		// Convert to wavenumbers
+		if (convertedWavelength == undefined) {
+			// Only need to convert the input wavelength
+			this.convertedWavenumber = convertNMtoWN(this.inputWavelength);
+		} else {
+			// Need to convert based on the new wavelength
+			this.convertedWavenumber = convertNMtoWN(convertedWavelength);
+		}
+		// Update converted wavelength
+		this.convertedWavelength = convertedWavelength;
+	},
+};
+
+const previousScans = {
+	allScans: [],
+	recentScan: undefined,
+	addScan: function () {
+		// Add a saved scan to the previous scans list
+		let scanInformation = {
+			fileName: scanInfo.fileName,
+			detachmentMode: laserInfo.detachmentMode,
+			inputWavelength: laserInfo.inputWavelength,
+			convertedWavelength: laserInfo.convertedWavelength,
+			convertedWavenumber: laserInfo.convertedWavenumber,
+			totalFrames: scanInfo.getFrames(),
+			totalCount: scanInfo.getTotalCount(),
+		};
+		// Add to all scans list
+		this.allScans.push(scanInformation);
+		// Make this scan the most recent scan
+		this.recentScan = scanInformation;
+	},
+	saveScans: function () {
+		// Save previous scans information to JSON file
+		let JSONFileName = settingsList.saveDirectory.previousScans + "/" + getFormattedDate() + "_PreviousScans.json";
+		let JSONString = JSON.stringify(this.allScans);
+
+		fs.writeFile(JSONFileName, JSONString, (err) => {
+			if (err) {
+				console.log(err);
+			}
+		});
+	},
+	readScans: function () {
+		// Read the scans from today's JSON file if it exists
+		let JSONFileName = settingsList.saveDirectory.previousScans + "/" + getFormattedDate() + "_PreviousScans.json";
+		let JSONData; // Data extracted from JSON file
+		// Check if that file exists
+		fs.stat(JSONFileName, (err) => {
+			if (err) {
+				// File doesn't exist, start file counter at 1
+				// Can be accomplished by decreasing I0N counter (since it's min is 1)
+				I0NCounterDown();
+			} else {
+				// File exists, read it and get previous scan information
+				fs.readFile(JSONFileName, (err, fileData) => {
+					JSONData = JSON.parse(fileData);
+					// Add scans to previous scans list
+					this.allScans = JSONData;
+					for (let i = 0; i < JSONData.length; i++) {
+						UpdateRecentFiles(JSONData[i]); // Update recent files section
+						I0NCounterUp(); // Increase I0N increment to account for previous scans
+					}
+					// Set recent scan to last scan in file
+					this.recentScan = JSONData[JSONData.length - 1];
+					// Set laser detachment mode and wavelength to that of recent scan
+					laserInfo.updateMode(this.recentScan.detachmentMode);
+					laserInfo.updateWavelength(this.recentScan.inputWavelength);
+					laserInfo.convert();
+					// Update laser info display
+					UpdateLaserWavelength();
+				});
+			}
+		});
+	},
+};
