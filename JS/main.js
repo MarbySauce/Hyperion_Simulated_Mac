@@ -5,16 +5,32 @@ let mainWin;
 let LVWin;
 let invisibleWin;
 
+// Way to quickly switch between monitors
+// 0 -> work monitor, 1 -> home monitor
+const thisMonitor = 0;
+const monitor = [
+	[
+		[-1850, -200],
+		[-900, 50],
+	],
+	[
+		[1480, -300],
+		[2950, -300],
+	],
+];
+
 function createMainWindow() {
 	const win = new BrowserWindow({
 		width: 1200,
 		height: 1000,
 		minWidth: 600,
 		minHeight: 600,
-		x: 1480,
-		y: -300,
+		//x: 1480,
+		//y: -300,
 		//x: -1850,
 		//y: -200,
+		x: monitor[thisMonitor][0][0],
+		y: monitor[thisMonitor][0][1],
 		webPreferences: {
 			nodeIntegration: true,
 			contextIsolation: false,
@@ -31,10 +47,12 @@ function createLVWindow() {
 	win = new BrowserWindow({
 		width: 1200,
 		height: 1000,
-		x: 2950,
-		y: -300,
+		//x: 2950,
+		//y: -300,
 		//x: -900,
 		//y: 50,
+		x: monitor[thisMonitor][1][0],
+		y: monitor[thisMonitor][1][1],
 		webPreferences: {
 			nodeIntegration: true,
 			contextIsolation: false,
@@ -77,9 +95,20 @@ app.whenReady().then(function () {
 	});
 
 	// Close LV window when main window is closed
-	mainWin.on("close", function () {
+	// !! Update comments
+	mainWin.on("close", function (event) {
+		/*event.preventDefault();
+		mainWin.hide();
+		LVWin.hide();
+		mainWin.webContents.send("closing-main-window", null);*/
 		app.quit();
 	});
+});
+
+ipcMain.on("closing-main-window-received", (event, arg) => {
+	//console.log(arg);
+	mainWin.destroy();
+	app.quit();
 });
 
 app.on("window-all-closed", function () {
@@ -102,8 +131,12 @@ ipcMain.on("UpdateSaveDirectory", function (event, arg) {
 
 				// Check if Home directory is included in path
 				// If so, remove (to clean up aesthetically)
+				// Do the same for the app's parent directory
 				let homePath = app.getPath("home");
-				if (returnPath.includes(homePath)) {
+				let appPath = app.getAppPath();
+				if (returnPath.includes(appPath)) {
+					returnPath = "." + returnPath.substr(appPath.length);
+				} else if (returnPath.includes(homePath)) {
 					returnPath = "~" + returnPath.substr(homePath.length);
 				}
 
@@ -129,19 +162,20 @@ ipcMain.on("StopCentroiding", function (event, arg) {
 // Relay centroid data to visible windows
 ipcMain.on("LVImageUpdate", function (event, arg) {
 	// arg is an object containing image and calculated centers
+	let doNothing;
 
 	// Send data to main window if it's open
 	try {
 		mainWin.webContents.send("LVImageUpdate", arg);
 	} catch {
-		console.log("");
+		doNothing = true;
 	}
 
 	// Send data to live view window if it's open
 	try {
 		LVWin.webContents.send("LVImageUpdate", arg);
 	} catch {
-		console.log("");
+		doNothing = true;
 	}
 });
 

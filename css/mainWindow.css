@@ -207,6 +207,11 @@ label {
 	background: hsla(225, 20%, 55%, 1);
 	border: 1px solid hsla(0, 100%, 100%, 0.7);
 }
+.I0NButton:disabled {
+	border: 1px solid hsla(0, 0%, 0%, 0.2);
+	background: hsla(225, 20%, 35%, 0.6);
+	opacity: 0.6;
+}
 
 .DisplaySlider {
 	-webkit-appearance: none;
@@ -339,7 +344,7 @@ Left Side
 }
 #FileTakenAlert {
 	padding-top: 3px;
-	grid-area: 2 / 3 / span 1 / span 4;
+	grid-area: 2 / 4 / span 1 / span 4;
 	display: inline-block;
 	z-index: 5;
 	border: none;

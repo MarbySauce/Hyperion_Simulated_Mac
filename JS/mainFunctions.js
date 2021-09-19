@@ -176,7 +176,6 @@ function Startup() {
 	const saveDirectory = document.getElementById("SaveDirectory");
 	const mainDisplay = document.getElementById("Display");
 	const mainDisplayContext = mainDisplay.getContext("2d");
-	let mainDisplayData;
 
 	SwitchTabs();
 
@@ -199,7 +198,7 @@ function Startup() {
 	//todaysDate = getFormattedDate();
 
 	// Update CurrentFile and CurrentDirectory displays
-	saveDirectory.value = settingsList.saveDirectory.currentScan;
+	saveDirectory.value = settings.saveDirectory.currentScan;
 
 	// Find today's previous files JSON file and read
 	//tartupReadRecentFiles();
@@ -208,7 +207,6 @@ function Startup() {
 	// Fill display and get image data
 	mainDisplayContext.fillstyle = "black";
 	mainDisplayContext.fillRect(0, 0, accumulatedImage.width, accumulatedImage.height);
-	mainDisplayData = mainDisplayContext.getImageData(0, 0, accumulatedImage.width, accumulatedImage.height);
 
 	// Start centroiding
 	ipc.send("StartCentroiding", null);
@@ -269,6 +267,10 @@ function SwitchTabs(Tab) {
 
 // Start a scan or save it if scan is already started
 function StartSaveScan() {
+	const currentFile = document.getElementById("CurrentFile");
+	const i0NCounterUp = document.getElementById("I0NCounterUp");
+	const i0NCounterDown = document.getElementById("I0NCounterDown");
+
 	// Make sure scan is not considered paused
 	scanInfo.paused = false;
 
@@ -283,16 +285,30 @@ function StartSaveScan() {
 		accumulatedImage.reset();
 		UpdateAccumulatedImageDisplay(true); // Called with 'true' to reset entire image
 
-		// Start centroiding
+		// Disable increment buttons and current file input
+		// That way image isn't saved to two different files
+		currentFile.disabled = true;
+		i0NCounterUp.disabled = true;
+		i0NCounterDown.disabled = true;
+
+		// Start centroiding (and auto-saving)
 		scanInfo.startScan();
 	} else {
 		// Button press indicates the current scan should be stopped and saved
 
-		// Stop the scan
+		// Stop the scan (and auto-saving)
 		scanInfo.stopScan();
+
+		// Save the image
+		scanInfo.saveImage();
 
 		// Save the scan information
 		SaveScanInformation();
+
+		// Re-enable file name controls
+		currentFile.disabled = false;
+		i0NCounterUp.disabled = false;
+		i0NCounterDown.disabled = false;
 
 		// Tick up increment counter
 		I0NCounterUp();
@@ -410,7 +426,7 @@ function UpdateRecentFiles(saveFile) {
 		}
 
 		tag = document.createElement("p");
-		if (saveFile[key]) {
+		if (saveFile[key] != null) {
 			if (typeof saveFile[key] == "number") {
 				text = saveFile[key].toFixed(3).toString();
 			} else {
@@ -422,6 +438,21 @@ function UpdateRecentFiles(saveFile) {
 		textNode = document.createTextNode(text);
 		tag.appendChild(textNode);
 		recentScansSection.appendChild(tag);
+	}
+}
+
+// Remove a scan from the recent scans display
+function RemoveScanFromDisplay(scanIndex) {
+	// scanIndex should be the same index as in previousScans.allScans
+	const recentScansSection = document.getElementById("RecentScansSection");
+	let childIndex; // index of children in recentScans section to remove
+
+	// Remove the scanIndex'th row from the display
+	// 5 elements per row, so remove elements (scanIndex * 5) to (scanIndex * 5 + 4)
+	// or remove the (scanIndex * 5)th element 5 times
+	for (let _ = 0; _ < 5; _++) {
+		childIndex = scanIndex * 5;
+		recentScansSection.removeChild(recentScansSection.children[childIndex]);
 	}
 }
 
@@ -466,29 +497,34 @@ function GetLaserInput() {
 
 // Update laser wavelength displays
 function UpdateLaserWavelength() {
-	const wavelengthMode = document.getElementById("WavelengthMode");
-	const currentWavelength = document.getElementById("CurrentWavelength");
 	const convertedWavelength = document.getElementById("ConvertedWavelength");
 	const convertedWavenumber = document.getElementById("CurrentWavenumber");
 
 	// Convert laser energies based on detachment mode
 	laserInfo.convert();
 
-	// Update displays
-	wavelengthMode.selectedIndex = laserInfo.detachmentMode;
-	if (laserInfo.inputWavelength) {
-		currentWavelength.value = laserInfo.inputWavelength.toFixed(3);
-	}
 	// Need if/else in case input was never defined or standard setup is being used
-	if (laserInfo.convertedWavelength) {
+	if (laserInfo.convertedWavelength != null) {
 		convertedWavelength.value = laserInfo.convertedWavelength.toFixed(3);
 	} else {
 		convertedWavelength.value = "";
 	}
-	if (laserInfo.convertedWavenumber) {
+	if (laserInfo.convertedWavenumber != null) {
 		convertedWavenumber.value = laserInfo.convertedWavenumber.toFixed(3);
 	} else {
 		convertedWavenumber.value = "";
+	}
+}
+
+// Update the wavelength input on startup if there's a recent scan with defined wavelength
+function UpdateLaserWavelengthInput() {
+	const wavelengthMode = document.getElementById("WavelengthMode");
+	const currentWavelength = document.getElementById("CurrentWavelength");
+
+	// Update displays
+	wavelengthMode.selectedIndex = laserInfo.detachmentMode;
+	if (laserInfo.inputWavelength) {
+		currentWavelength.value = laserInfo.inputWavelength.toFixed(3);
 	}
 }
 
@@ -589,8 +625,8 @@ function eChartUpdateAxisLabels() {
 	const yAxisDown = document.getElementById("eChartYAxisDown");
 
 	// Write current max axis values
-	xAxis.value = eChartData.xAxisMax;
-	yAxis.value = eChartData.yAxisMax;
+	xAxis.value = settings.eChart.xAxisMax;
+	yAxis.value = settings.eChart.yAxisMax;
 
 	// Disable/enable buttons appropriately
 	xAxisUp.disabled = eChartData.xAxisUpDisabled;
@@ -602,39 +638,50 @@ function eChartUpdateAxisLabels() {
 /*		Settings		*/
 
 // Save the settings to SettingsList & Write to JSON file
-function SaveSettingsButtonFn() {
-	SettingsList.Camera.AoIx = parseFloat(AoIx.value);
-	SettingsList.Camera.AoIy = parseFloat(AoIy.value);
-	SettingsList.Camera.xOffset = parseFloat(xOffset.value);
-	SettingsList.Camera.yOffset = parseFloat(yOffset.value);
-	SettingsList.Camera.ExposureTime = parseFloat(ExposureTime.value);
-	SettingsList.Camera.Gain = parseFloat(Gain.value);
-	SettingsList.Camera.GainBoost = GainBoost.checked;
-	if (InternalTrigger.checked) {
-		SettingsList.Camera.Trigger = "Internal Trigger";
-	} else if (RisingEdge.checked) {
-		SettingsList.Camera.Trigger = "Rising Edge";
-	} else if (FallingEdge.checked) {
-		SettingsList.Camera.Trigger = "Falling Edge";
+function SaveSettings() {
+	const xAoI = document.getElementById("AoIx");
+	const yAoI = document.getElementById("AoIy");
+	const xOffset = document.getElementById("xOffset");
+	const yOffset = document.getElementById("yOffset");
+	const exposureTime = document.getElementById("ExposureTime");
+	const gain = document.getElementById("Gain");
+	const gainBoost = document.getElementById("GainBoost");
+	const internalTrigger = document.getElementById("InternalTrigger");
+	const risingEdge = document.getElementById("RisingEdge");
+	const fallingEdge = document.getElementById("FallingEdge");
+	const triggerDelay = document.getElementById("TriggerDelay");
+	const rawAccumulation = document.getElementById("RawAccumulation");
+	const centroidAccumulation = document.getElementById("CentroidAccumulation");
+	const hybridMethod = document.getElementById("HybridMethod");
+	const centroidBinSize = document.getElementById("CentroidBinSize");
+
+	settings.camera.xAoI = parseFloat(xAoI.value);
+	settings.camera.yAoI = parseFloat(yAoI.value);
+	settings.camera.xOffset = parseFloat(xOffset.value);
+	settings.camera.yOffset = parseFloat(yOffset.value);
+	settings.camera.exposureTime = parseFloat(exposureTime.value);
+	settings.camera.gain = parseFloat(gain.value);
+	settings.camera.gainBoost = gainBoost.checked;
+
+	if (internalTrigger.checked) {
+		settings.camera.trigger = "Internal Trigger";
+	} else if (risingEdge.checked) {
+		settings.camera.trigger = "Rising Edge";
+	} else if (fallingEdge.checked) {
+		settings.camera.trigger = "Falling Edge";
 	}
-	SettingsList.Camera.TriggerDelay = parseFloat(TriggerDelay.value);
+	settings.camera.triggerDelay = parseFloat(triggerDelay.value);
 
-	if (RawAccumulation.checked) {
-		SettingsList.Centroid.Accumulation = "Raw";
-	} else if (CentroidAccumulation.checked) {
-		SettingsList.Centroid.Accumulation = "Centroid";
+	if (rawAccumulation.checked) {
+		settings.centroid.accumulation = "Raw";
+	} else if (centroidAccumulation.checked) {
+		settings.centroid.accumulation = "Centroid";
 	}
-	SettingsList.Centroid.HybridMethod = HybridMethod.checked;
-	SettingsList.Centroid.BinSize = parseFloat(CentroidBinSize.value);
+	settings.centroid.hybridMethod = hybridMethod.checked;
+	settings.centroid.binSize = parseFloat(centroidBinSize.value);
 
-	SettingsList.eChart.MaxYAxis = eChartMaxYAxis;
-	SettingsList.eChart.MaxXAxis = eChartMaxXAxis;
-
-	let SettingsListJSON = JSON.stringify(SettingsList);
-
-	fs.writeFile("./Settings/SettingsList.JSON", SettingsListJSON, function () {
-		console.log("Settings Saved!");
-	});
+	// Write settings to file
+	settings.save();
 
 	// Apply the settings
 	ApplySettings();
@@ -642,39 +689,50 @@ function SaveSettingsButtonFn() {
 
 // Get Settings from SettingsList.JSON and update values
 function ReadSettingsFromFileSync() {
-	// Read data from file
+	const xAoI = document.getElementById("AoIx");
+	const yAoI = document.getElementById("AoIy");
+	const xOffset = document.getElementById("xOffset");
+	const yOffset = document.getElementById("yOffset");
+	const exposureTime = document.getElementById("ExposureTime");
+	const gain = document.getElementById("Gain");
+	const gainBoost = document.getElementById("GainBoost");
+	const internalTrigger = document.getElementById("InternalTrigger");
+	const risingEdge = document.getElementById("RisingEdge");
+	const fallingEdge = document.getElementById("FallingEdge");
+	const triggerDelay = document.getElementById("TriggerDelay");
+	const rawAccumulation = document.getElementById("RawAccumulation");
+	const centroidAccumulation = document.getElementById("CentroidAccumulation");
+	const hybridMethod = document.getElementById("HybridMethod");
+	const centroidBinSize = document.getElementById("CentroidBinSize");
+
 	try {
 		// Check if the settings file exists
-		let JSONdata = fs.readFileSync("./Settings/SettingsList.JSON");
-		let data = JSON.parse(JSONdata);
-		SettingsList = data;
+		settings.read();
 
-		AoIx.value = SettingsList.Camera.AoIx;
-		AoIy.value = SettingsList.Camera.AoIy;
-		xOffset.value = SettingsList.Camera.xOffset;
-		yOffset.value = SettingsList.Camera.yOffset;
-		ExposureTime.value = SettingsList.Camera.ExposureTime;
-		Gain.value = SettingsList.Camera.Gain;
-		GainBoost.checked = SettingsList.Camera.GainBoost;
-		if (SettingsList.Camera.Trigger === "Internal Trigger") {
-			InternalTrigger.checked = true;
-		} else if (SettingsList.Camera.Trigger === "Rising Edge") {
-			RisingEdge.checked = true;
-		} else if (SettingsList.Camera.Trigger === "Falling Edge") {
-			FallingEdge.checked = true;
+		// Update settings display
+		xAoI.value = settings.camera.xAoI;
+		yAoI.value = settings.camera.yAoI;
+		xOffset.value = settings.camera.xOffset;
+		yOffset.value = settings.camera.yOffset;
+		exposureTime.value = settings.camera.exposureTime;
+		gain.value = settings.camera.gain;
+		gainBoost.checked = settings.camera.gainBoost;
+		if (settings.camera.trigger === "Internal Trigger") {
+			internalTrigger.checked = true;
+		} else if (settings.camera.trigger === "Rising Edge") {
+			risingEdge.checked = true;
+		} else if (settings.camera.trigger === "Falling Edge") {
+			fallingEdge.checked = true;
 		}
-		TriggerDelay.value = SettingsList.Camera.TriggerDelay;
+		triggerDelay.value = settings.camera.triggerDelay;
 
-		if (SettingsList.Centroid.Accumulation === "Raw") {
-			RawAccumulation.checked = true;
-		} else if (SettingsList.Centroid.Accumulation === "Centroid") {
-			CentroidAccumulation.checked = true;
+		if (settings.centroid.accumulation === "Raw") {
+			rawAccumulation.checked = true;
+		} else if (settings.centroid.accumulation === "Centroid") {
+			centroidAccumulation.checked = true;
 		}
-		HybridMethod.checked = SettingsList.Centroid.HybridMethod;
-		CentroidBinSize.value = SettingsList.Centroid.BinSize;
-
-		eChartMaxYAxis = SettingsList.eChart.MaxYAxis;
-		eChartMaxXAxis = SettingsList.eChart.MaxXAxis;
+		hybridMethod.checked = settings.centroid.hybridMethod;
+		centroidBinSize.value = settings.centroid.binSize;
 	} catch {
 		// If the settings file doesn't exist, use version from mainDefinitions.js
 	}
@@ -683,8 +741,11 @@ function ReadSettingsFromFileSync() {
 // Apply the settings after reading
 function ApplySettings() {
 	// Turn hybrid method on/off
-	ipc.send("HybridMethod", SettingsList.Centroid.HybridMethod);
+	ipc.send("HybridMethod", settings.centroid.hybridMethod);
 	// More stuff for camera control to come
+
+	// Check electron chart button status
+	eChartData.checkDisable();
 }
 
 /*
@@ -759,11 +820,16 @@ function UpdateAverageCountDisplays() {
 	const hybridAverage = document.getElementById("eChartHybridAvg");
 	const eChartTotalAverage = document.getElementById("eChartTotalAvg");
 
-	totalAverage.value = averageCount.getTotalAverage();
-	cclAverage.value = averageCount.getCCLAverage();
-	hybridAverage.value = averageCount.getHybridAverage();
-	eChartTotalAverage.value = averageCount.getTotalAverage();
+	if (averageCount.updateCounter === averageCount.updateFrequency) {
+		totalAverage.value = averageCount.getTotalAverage();
+		cclAverage.value = averageCount.getCCLAverage();
+		hybridAverage.value = averageCount.getHybridAverage();
+		eChartTotalAverage.value = averageCount.getTotalAverage();
 
+		averageCount.updateCounter = 0;
+	} else {
+		averageCount.updateCounter++;
+	}
 	// Need to add bit about updating calc time
 }
 
@@ -777,8 +843,29 @@ function UpdateScanCountDisplays() {
 }
 
 // Receive message about changing Current File Save Directory
-ipc.on("NewSaveDirectory", function (event, arg) {
-	SaveDirectory.value = arg.toString();
+ipc.on("NewSaveDirectory", function (event, returnedDirectory) {
+	const saveDirectory = document.getElementById("SaveDirectory");
+
+	settings.saveDirectory.currentScan = returnedDirectory.toString();
+	saveDirectory.value = settings.saveDirectory.currentScan;
+});
+
+ipc.on("closing-main-window", () => {
+	// This works!
+	// So here is where I can command it to save the settings list
+	// and update previous Scans to include one if it's currently running but not saved
+	// If window was closed while a scan was running, save the scan before closing
+	if (scanInfo.running) {
+		// Stop the scan (and auto-saving)
+		scanInfo.stopScan();
+		// Save the image
+		//await scanInfo.saveImage();
+		// Add this scan to previousScans
+		previousScans.addScan();
+		// Save today's previous scans to JSON file
+		previousScans.saveScans();
+	}
+	ipc.send("closing-main-window-received", settings);
 });
 
 /* When update e- counters on main page, also update on e- Monitor page
@@ -812,7 +899,7 @@ function getCurrentFileName(ionCounter) {
 	// Slice here makes sure 0 is not included if ionCounter > 9
 	let increment = ("0" + ionCounter).slice(-2);
 	let fileString = `${todaysDate}i${increment}_1024.i0N`;
-	let checked = checkCurrentFile(settingsList.saveDirectory.currentScan, fileString);
+	let checked = checkCurrentFile(settings.saveDirectory.currentScan, fileString);
 
 	// Update file name in scan information
 	scanInfo.fileName = fileString;
@@ -831,7 +918,7 @@ function getCurrentFileName(ionCounter) {
 
 // Check if file in Current File exists
 function checkCurrentFile(current_dir, file_string) {
-	let currentFile = current_dir + file_string;
+	let currentFile = current_dir + "/" + file_string;
 	if (fs.existsSync(currentFile)) {
 		return true;
 	} else {
@@ -839,178 +926,20 @@ function checkCurrentFile(current_dir, file_string) {
 	}
 }
 
-// On startup, check if there is already a json file for today and read it
-function startupReadRecentFiles() {
-	let fileName = prevFileSaveDir + "/" + todaysDate + "prevFiles.json";
-	let incValue = parseFloat(I0NCounter.value);
-	// Check if that file exists
-	fs.stat(fileName, function (err, stats) {
-		if (err) {
-			console.log(err);
-		} else {
-			// Read it
-			fs.readFile(fileName, function (err, JSONdata) {
-				let data = JSON.parse(JSONdata);
-				// Update I0NCounter
-				incValue += data.length;
-				I0NCounter.value = incValue;
-				CurrentFile.value = getCurrentFileName(currentFileSaveDir, todaysDate);
-				// Make wavelength mode and wavelength the one previously used
-				let currentMode = data[data.length - 1].mode;
-				WavelengthMode.selectedIndex = currentMode;
-				let CWL = data[data.length - 1].wavelength;
-				CurrentWavelength.value = CWL;
-				WavelengthInputFn();
-				// Update prevFiles
-				for (let i = 0; i < data.length; i++) {
-					previousScans.push(data[i]);
-					updateRecentFiles(RecentScansSection, data[i]);
-				}
-			});
-		}
-	});
-}
-
-// Update accumulated image
-function updateAccumulatedImage(calcCenters) {
-	let contrastValue = parseFloat(DisplaySlider.value);
-	let contrastIncrement = contrastValue * 100;
-	for (let k = 0; k < 2; k++) {
-		for (let i = 0; i < calcCenters[0].length; i++) {
-			let xCenter = Math.round((calcCenters[0][i][0] * 4.0) / 3.0);
-			let yCenter = Math.round((calcCenters[0][i][1] * 4.0) / 3.0);
-			AccumulatedImage[yCenter][xCenter]++;
-
-			// Update image
-			let AccPixValue = 255 - AccumulatedImage[yCenter][xCenter] * contrastIncrement;
-			if (AccPixValue > 0) {
-				DisplayData.data[4 * (1024 * yCenter + xCenter) + 3] = AccPixValue;
-			} else {
-				DisplayData.data[4 * (1024 * yCenter + xCenter) + 3] = 0;
-			}
-		}
-	}
-	// Send updated image to screen
-	DisplayContext.putImageData(DisplayData, 0, 0);
-}
-
-function resetAccumulatedImage() {
-	// Reset accumulated image
-	AccumulatedImage = Array.from(Array(1024), () => new Array(1024).fill(0));
-
-	// Reset accumulated image display
-	for (let i = 0; i < 1024 * 1024; i++) {
-		DisplayData.data[4 * i + 3] = 255;
-	}
-	DisplayContext.putImageData(DisplayData, 0, 0);
-}
-
-// Update total electron counter
-function updateECount(calcCenters) {
-	let CCLCount = calcCenters[0].length;
-	let HybridCount = calcCenters[1].length;
-	let eCount = CCLCount + HybridCount;
-	totalECount += eCount;
-	TotalECount.value = getSciNot(totalECount); // Push current total electron count to normal mode screen
-}
-
-// Update average electron counter
-function updateAvgECount(calcCenters) {
-	// Get electron counts
-	let CCLCount = calcCenters[0].length;
-	let HybridCount = calcCenters[1].length;
-	let eCount = CCLCount + HybridCount;
-
-	// Add to respective arrays
-	PreviousCCLCounts.push(CCLCount);
-	PreviousHybridCounts.push(HybridCount);
-	PreviousElectronCounts.push(eCount);
-
-	// Make sure arrays are only 10 frames long
-	if (PreviousCCLCounts.length > 10) {
-		PreviousCCLCounts.shift();
-	}
-	if (PreviousHybridCounts.length > 10) {
-		PreviousHybridCounts.shift();
-	}
-	if (PreviousElectronCounts.length > 10) {
-		PreviousElectronCounts.shift();
-	}
-
-	// Update averages if avgUpdateCounter is large enough
-	if (avgUpdateCounter === 5) {
-		// Get averages and push to counters
-		let avgCCLECount = getAvg(PreviousCCLCounts).toFixed(2);
-		let avgHybridECount = getAvg(PreviousHybridCounts).toFixed(2);
-		let avgTotalECount = getAvg(PreviousElectronCounts).toFixed(2);
-		eChartCCLAvg.value = avgCCLECount;
-		eChartHybridAvg.value = avgHybridECount;
-		eChartTotalAvg.value = avgTotalECount;
-		AvgECount.value = avgTotalECount;
-
-		// Reset avgUpdateCounter
-		avgUpdateCounter = 0;
-	}
-
-	// Add electron counts to eChart if started
-	if (eChartBool) {
-		eChart.data.labels.push(frameCounter);
-		eChart.data.datasets[0].data.push(CCLCount); // Add single spot count
-		eChart.data.datasets[1].data.push(CCLCount + HybridCount); // Add overlapping spot count
-		frameCounter++;
-
-		// Make sure chart only contains certain number of data points
-		while (eChart.data.datasets[0].data.length > eChartMaxXAxis) {
-			eChart.data.labels.shift(); // Delete first data point from array
-			eChart.data.datasets[0].data.shift();
-			eChart.data.datasets[1].data.shift();
-		}
-
-		eChart.update("none"); // Update chart
-	}
-
-	// Update average update counter
-	avgUpdateCounter++;
-}
+// ----------------------------------------------- //
 
 function doit() {
-	let xxx = [
-		[10, 20],
-		[30, 40],
-		[50, 60],
-		[70, 80],
-		[90, 100],
-		[10, 20],
-		[30, 40],
-		[50, 60],
-		[70, 80],
-		[90, 100],
-	];
-	console.time("timer");
-	const display = document.getElementById("Display");
-	const displayContext = display.getContext("2d");
-	let displayData = displayContext.getImageData(0, 0, 1024, 1024);
-	for (let i = 0; i < xxx.length; i++) {
-		let pixValue = 255 - 50;
-		displayData.data[4 * (1024 * xxx[1] + xxx[0]) + 3] = pixValue;
-	}
-	displayContext.putImageData(displayData, 0, 0);
-	console.timeEnd("timer");
-}
-
-function doit2() {
-	console.time("timer");
-	const display = document.getElementById("Display");
-	const displayContext = display.getContext("2d");
-	let displayData = displayContext.getImageData(0, 0, 1024, 1024);
-	for (let Y = 0; Y < 1024; Y++) {
-		for (let X = 0; X < 1024; X++) {
-			if (accumulatedImage.normal[Y][X]) {
-				let pixValue = 255 - 50;
-				displayData.data[4 * (1024 * Y + X) + 3] = pixValue;
-			}
-		}
-	}
-	displayContext.putImageData(displayData, 0, 0);
-	console.timeEnd("timer");
+	console.time("Writing");
+	console.time("Executing");
+	fs.writeFile(settings.saveDirectory.currentScan + "/temp.txt", accumulatedImage.convertToString("normal"), () => {
+		console.log("Done");
+		console.timeEnd("Writing");
+		console.time("Executing Rename");
+		console.time("Rename");
+		fs.rename(settings.saveDirectory.currentScan + "/temp.txt", settings.saveDirectory.currentScan + "/image.txt", () => {
+			console.timeEnd("Rename");
+		});
+		console.timeEnd("Executing Rename");
+	});
+	console.timeEnd("Executing");
 }

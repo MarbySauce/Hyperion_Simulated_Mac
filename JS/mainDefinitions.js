@@ -49,8 +49,6 @@ const eChart = new Chart(document.getElementById("eChart").getContext("2d"), {
 
 const eChartData = {
 	running: false,
-	xAxisMax: 30,
-	yAxisMax: 20,
 	xAxisUpDisabled: false,
 	xAxisDownDisabled: false,
 	yAxisUpDisabled: false,
@@ -81,19 +79,19 @@ const eChartData = {
 	cleaveData: function () {
 		// Make sure chart has fewer data points than xAxisMax
 		// By deleting the first point from each array
-		while (this.labels.length > this.xAxisMax) {
+		while (this.labels.length > settings.eChart.xAxisMax) {
 			this.labels.shift();
 		}
-		while (this.cclData.length > this.xAxisMax) {
+		while (this.cclData.length > settings.eChart.xAxisMax) {
 			this.cclData.shift();
 		}
-		while (this.hybridData.length > this.xAxisMax) {
+		while (this.hybridData.length > settings.eChart.xAxisMax) {
 			this.hybridData.shift();
 		}
 	},
 	updateChart: function (echart) {
 		// Update chart vertical max value
-		echart.options.scales.y.max = this.yAxisMax;
+		echart.options.scales.y.max = settings.eChart.yAxisMax;
 		// Update chart data
 		echart.data.labels = this.labels;
 		echart.data.datasets[0].data = this.cclData;
@@ -108,11 +106,11 @@ const eChartData = {
 		let disableDown = false; // Check if we need to disable buttons
 		// Get current value for given axis
 		if (axis === "X") {
-			currentValue = this.xAxisMax;
+			currentValue = settings.eChart.xAxisMax;
 			disableUp = this.xAxisUpDisabled;
 			disableDown = this.xAxisDownDisabled;
 		} else if (axis === "Y") {
-			currentValue = this.yAxisMax;
+			currentValue = settings.eChart.yAxisMax;
 			disableUp = this.yAxisUpDisabled;
 			disableDown = this.yAxisDownDisabled;
 		}
@@ -186,18 +184,34 @@ const eChartData = {
 		}
 		// Apply new values
 		if (axis === "X") {
-			this.xAxisMax = currentValue;
+			settings.eChart.xAxisMax = currentValue;
 			this.xAxisUpDisabled = disableUp;
 			this.xAxisDownDisabled = disableDown;
 		} else if (axis === "Y") {
-			this.yAxisMax = currentValue;
+			settings.eChart.yAxisMax = currentValue;
 			this.yAxisUpDisabled = disableUp;
 			this.yAxisDownDisabled = disableDown;
 		}
 	},
+	checkDisable: function () {
+		// Check whether buttons need to be disabled
+		// (for use on startup)
+		// Check X axis
+		if (settings.eChart.xAxisMax === 1) {
+			this.xAxisDownDisabled = true;
+		} else if (settings.eChart.xAxisMax === 1000) {
+			this.xAxisUpDisabled = true;
+		}
+		// Check Y axis
+		if (settings.eChart.yAxisMax === 1) {
+			this.yAxisDownDisabled = true;
+		} else if (settings.eChart.yAxisMax === 1000) {
+			this.yAxisUpDisabled = true;
+		}
+	},
 };
 
-const settingsList = {
+const settings = {
 	camera: {
 		xAoI: 0,
 		yAoI: 0,
@@ -222,25 +236,95 @@ const settingsList = {
 		yAxisMax: 20,
 	},
 	saveDirectory: {
-		currentScan: "../Images",
+		currentScan: "./Images",
 		previousScans: "./PreviousScans",
+	},
+	save: function () {
+		let settingsJSON = JSON.stringify(settings);
+		fs.writeFile("./Settings/Settings.JSON", settingsJSON, () => {
+			console.log("Settings Saved!");
+		});
+	},
+	read: function () {
+		let data = fs.readFileSync("./Settings/Settings.JSON");
+		let savedSettings = JSON.parse(data);
+		for (let category in savedSettings) {
+			for (let key in savedSettings[category]) {
+				this[category][key] = savedSettings[category][key];
+			}
+		}
 	},
 };
 
 const scanInfo = {
 	running: false, // running does not change if scan is paused
 	paused: false,
-	method: "normal", // Can be "normal", "irOff", or "irOn"
+	method: "normal", // Can be "normal" or "ir"
 	frameCount: 0,
 	cclCount: 0,
 	hybridCount: 0,
 	totalCount: 0,
 	fileName: "",
+	autoSaveTimer: 1000000, // in ms, time between auto saves
+	autoSave: false,
 	startScan: function () {
 		this.running = true;
+		this.autoSave = true;
+		this.autoSaveLoop();
 	},
 	stopScan: function () {
 		this.running = false;
+		this.autoSave = false;
+	},
+	saveImage: function () {
+		// Save the image
+		let saveLocation = settings.saveDirectory.currentScan + "/" + this.fileName;
+		// Temporary file to store to in case app crashes while writing,
+		// previous autosaved file will not be ruined
+		let tempSaveLocation = settings.saveDirectory.currentScan + "/temp.txt";
+		let imageString; // Sting-ified version of image to write to file
+		switch (this.method) {
+			case "normal":
+				imageString = accumulatedImage.convertToString("normal");
+				break;
+
+			case "ir":
+				// Need to add functionality to save irOn and irOff
+				// and option to save irDifference
+				break;
+		}
+		// Write the image to a temp file first, then rename that file
+		// to appropriate file name
+		// Renaming takes ~0.5 ms, so very small chance of app crashing during
+		fs.writeFile(tempSaveLocation, imageString, (err) => {
+			if (err) {
+				console.log(err);
+			} else {
+				fs.rename(tempSaveLocation, saveLocation, (err) => {
+					if (err) {
+						console.log(err);
+					} else {
+						console.log("Saved!");
+					}
+				});
+			}
+		});
+	},
+	autoSaveLoop: function () {
+		// Loop used to autosave images
+		setTimeout(() => {
+			// Make sure we still want to autosave the file
+			if (this.autoSave) {
+				// Start the next timer
+				this.autoSaveLoop();
+				if (!this.paused) {
+					// Save the image
+					// Don't need to save if we're paused, but we should
+					// stay in this loop
+					this.saveImage();
+				}
+			}
+		}, this.autoSaveTimer);
 	},
 	update: function (calculatedCenters) {
 		let ccl = calculatedCenters[0].length;
@@ -318,18 +402,40 @@ const accumulatedImage = {
 						this.normal[yCenter][xCenter]++;
 						break;
 
-					case "irOff":
-						// Add to IR off image
+					case "ir":
+						// Add to IR images
+						// !! Need to add system to decide which image to add to
 						this.irOff[yCenter][xCenter]++;
-						break;
-
-					case "irOn":
-						// Add to IR on image
 						this.irOn[yCenter][xCenter]++;
 						break;
 				}
 			}
 		}
+	},
+	convertToString: function (image) {
+		// Convert the accumulated image to a printable string
+		// where each element in a row is separated with a space
+		// and each row is separated with a new line
+		// Image can be "normal", "irOn", "irOff", or "irDifference"
+		let arrayToWrite; // Will be the array that is used
+		switch (image) {
+			case "normal":
+				arrayToWrite = this.normal;
+				break;
+
+			case "irOn":
+				arrayToWrite = this.irOn;
+				break;
+
+			case "irOff":
+				arrayToWrite = this.irOff;
+				break;
+
+			case "irDifference":
+				arrayToWrite = this.irDifference;
+				break;
+		}
+		return arrayToWrite.map((row) => row.join(" ")).join("\n");
 	},
 	getDifference: function () {
 		// Calculates the difference image for IR
@@ -354,7 +460,7 @@ const accumulatedImage = {
 	},
 	reset: function (image) {
 		// Resets the selected accumulated image
-		// calling with no argument resets all three
+		// calling with no argument resets all four
 		let imageCase = image || "all";
 		switch (imageCase) {
 			case "normal":
@@ -363,19 +469,25 @@ const accumulatedImage = {
 				break;
 
 			case "irOff":
-				// Reset IR off
+				// Reset IR off image
 				this.irOff = Array.from(Array(this.height), () => new Array(this.width).fill(0));
 				break;
 
 			case "irOn":
-				// Reset IR on
+				// Reset IR on image
 				this.irOn = Array.from(Array(this.height), () => new Array(this.width).fill(0));
+				break;
+
+			case "irDifference":
+				// Reset IR difference image
+				this.irDifference = Array.from(Array(this.height), () => new Array(this.width).fill(0));
 				break;
 
 			case "all":
 				this.normal = Array.from(Array(this.height), () => new Array(this.width).fill(0));
 				this.irOff = Array.from(Array(this.height), () => new Array(this.width).fill(0));
 				this.irOn = Array.from(Array(this.height), () => new Array(this.width).fill(0));
+				this.irDifference = Array.from(Array(this.height), () => new Array(this.width).fill(0));
 				break;
 		}
 
@@ -408,6 +520,7 @@ const averageCount = {
 	prevTotalCounts: [],
 	updateCounter: 0, // Used to keep track of how many frames have
 	// been processed since the last time avg display was updated
+	updateFrequency: 10, // Number of frames before updating display
 	update: function (calculatedCenters) {
 		let ccl = calculatedCenters[0].length;
 		let hybrid = calculatedCenters[1].length;
@@ -428,10 +541,6 @@ const averageCount = {
 			this.prevTotalCounts.shift();
 		}
 	},
-	increaseUpdateCounter: function () {
-		// Not a necessary function but I think it makes the code more readable
-		this.updateCounter++;
-	},
 	getAverage: function (arr) {
 		// Calculates the average value of the arrays
 		const sum = arr.reduce((accumulator, currentValue) => {
@@ -451,17 +560,17 @@ const averageCount = {
 };
 
 const laserInfo = {
-	inputWavelength: undefined,
+	inputWavelength: null,
 	detachmentMode: 0, // 0 is Standard, 1 is Doubled, 2 is Raman Shifter, 3 is IR-DFG
-	convertedWavelength: undefined,
-	convertedWavenumber: undefined,
+	convertedWavelength: null,
+	convertedWavenumber: null,
 	updateWavelength: function (wavelength) {
 		// Update input wavelength
 		// wavelength should be a number in units of nm
 		if (100 < wavelength && wavelength < 20000) {
 			this.inputWavelength = wavelength;
 		} else {
-			this.inputWavelength = undefined;
+			this.inputWavelength = null;
 		}
 	},
 	updateMode: function (mode) {
@@ -479,15 +588,18 @@ const laserInfo = {
 		// As well as convert to wavenumbers
 		let convertedWavelength;
 
-		if (isNaN(this.inputWavelength)) {
-			// No input wavelength, do nothing
+		if (this.inputWavelength == null || isNaN(this.inputWavelength)) {
+			// No input wavelength
+			// Clear converted energies and return
+			this.convertedWavelength = null;
+			this.convertedWavenumber = null;
 			return;
 		}
 		// Convert wavelength based on mode
 		switch (this.detachmentMode) {
 			case 0:
 				// Standard setup, no need to convert wavelengths
-				convertedWavelength = undefined;
+				convertedWavelength = null;
 				break;
 
 			case 1:
@@ -515,7 +627,7 @@ const laserInfo = {
 				break;
 		}
 		// Convert to wavenumbers
-		if (convertedWavelength == undefined) {
+		if (convertedWavelength == null) {
 			// Only need to convert the input wavelength
 			this.convertedWavenumber = convertNMtoWN(this.inputWavelength);
 		} else {
@@ -532,6 +644,7 @@ const previousScans = {
 	recentScan: undefined,
 	addScan: function () {
 		// Add a saved scan to the previous scans list
+		let repeatedFileNameIndex;
 		let scanInformation = {
 			fileName: scanInfo.fileName,
 			detachmentMode: laserInfo.detachmentMode,
@@ -541,6 +654,18 @@ const previousScans = {
 			totalFrames: scanInfo.getFrames(),
 			totalCount: scanInfo.getTotalCount(),
 		};
+		// Check if that filename has been used before
+		// (i.e. that file was overwritten)
+		repeatedFileNameIndex = this.allScans.findIndex((scan) => scan.fileName === scanInfo.fileName);
+		// findIndex returns -1 if it found no duplicates
+		if (repeatedFileNameIndex !== -1) {
+			// An earlier scan was overwritten
+			// Need to also overwrite previousScans
+			// splice(i, n) removes the i'th element n times
+			this.allScans.splice(repeatedFileNameIndex, 1);
+			// Remove that scan from the recent scans display as well
+			RemoveScanFromDisplay(repeatedFileNameIndex);
+		}
 		// Add to all scans list
 		this.allScans.push(scanInformation);
 		// Make this scan the most recent scan
@@ -548,7 +673,7 @@ const previousScans = {
 	},
 	saveScans: function () {
 		// Save previous scans information to JSON file
-		let JSONFileName = settingsList.saveDirectory.previousScans + "/" + getFormattedDate() + "_PreviousScans.json";
+		let JSONFileName = settings.saveDirectory.previousScans + "/" + getFormattedDate() + "_PreviousScans.json";
 		let JSONString = JSON.stringify(this.allScans);
 
 		fs.writeFile(JSONFileName, JSONString, (err) => {
@@ -559,7 +684,7 @@ const previousScans = {
 	},
 	readScans: function () {
 		// Read the scans from today's JSON file if it exists
-		let JSONFileName = settingsList.saveDirectory.previousScans + "/" + getFormattedDate() + "_PreviousScans.json";
+		let JSONFileName = settings.saveDirectory.previousScans + "/" + getFormattedDate() + "_PreviousScans.json";
 		let JSONData; // Data extracted from JSON file
 		// Check if that file exists
 		fs.stat(JSONFileName, (err) => {
@@ -584,6 +709,7 @@ const previousScans = {
 					laserInfo.updateWavelength(this.recentScan.inputWavelength);
 					laserInfo.convert();
 					// Update laser info display
+					UpdateLaserWavelengthInput();
 					UpdateLaserWavelength();
 				});
 			}
