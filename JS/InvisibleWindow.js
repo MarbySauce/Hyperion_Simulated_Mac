@@ -32,7 +32,7 @@ let LVBuffer = Buffer.from(LVImage);
 function Startup() {
 	// Set centroiding values
 	centroid.setGenImageSize(0);
-	centroid.setDelayTime(30); //50);
+	centroid.setDelayTime(50);
 	//centroid.useHybrid();
 
 	// Initialize image buffer

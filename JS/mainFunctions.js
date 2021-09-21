@@ -20,99 +20,143 @@ window.onload = function () {
 };
 
 // Tabs
-NormalMode.onclick = function () {
-	PressTabFn(NormalMode);
+document.getElementById("NormalMode").onclick = function () {
+	// Normal mode tab
+	SwitchTabs(0);
 };
-IRMode.onclick = function () {
-	PressTabFn(IRMode);
+document.getElementById("IRMode").onclick = function () {
+	// IR mode tab
+	SwitchTabs(1);
 };
-EMonitor.onclick = function () {
-	PressTabFn(EMonitor);
+document.getElementById("EMonitor").onclick = function () {
+	// e- monitor tab
+	SwitchTabs(2);
 };
-PostProcess.onclick = function () {
-	PressTabFn(PostProcess);
+document.getElementById("PostProcess").onclick = function () {
+	// Post processing tab
+	SwitchTabs(3);
 };
-Settings.onclick = function () {
-	PressTabFn(Settings);
+document.getElementById("Settings").onclick = function () {
+	// Settings tab
+	SwitchTabs(4);
 };
 
 /*		Normal Mode		*/
 
 // Scan Controls
-StartSave.onclick = function () {
-	StartSaveButtonFn();
+document.getElementById("StartSave").onclick = function () {
+	// Start/Save scan button
+	StartSaveScan();
 };
-Pause.onclick = function () {
-	PauseButtonFn();
+document.getElementById("Pause").onclick = function () {
+	// Pause scan button
+	// Toggle pause status (e.g. if running, pause; if paused, resume)
+	scanInfo.paused = !scanInfo.paused;
+	// Change Pause button text
+	UpdatePauseButtonText();
+	// Enable/disable Single Shot button
+	UpdateSSButtonStatus();
 };
-SingleShot.onclick = function () {
-	SingleShotButtonFn();
+document.getElementById("SingleShot").onclick = function () {
+	// Single shot button
+	console.log("Executed SS");
 };
 
 // Save Controls
-I0NCounterDown.onclick = function () {
-	I0NCounterDownButtonFn();
+document.getElementById("CurrentFile").oninput = function () {
+	// File name is manually typed
+	scanInfo.updateFileName(document.getElementById("CurrentFile").value);
 };
-I0NCounterUp.onclick = function () {
-	I0NCounterUpButtonFn();
+document.getElementById("I0NCounterDown").onclick = function () {
+	// Decrease file increment
+	I0NCounterDown();
 };
-WavelengthMode.oninput = function () {
-	WavelengthInputFn();
+document.getElementById("I0NCounterUp").onclick = function () {
+	// Increase file increment
+	I0NCounterUp();
 };
-CurrentWavelength.oninput = function () {
-	WavelengthInputFn();
+document.getElementById("WavelengthMode").oninput = function () {
+	// Detachment laser setup dropdown menu
+	GetLaserInput();
+	UpdateLaserWavelength();
 };
-ChangeSaveDirectory.onclick = function () {
-	ChangeSaveDirectoryButtonFn();
+document.getElementById("CurrentWavelength").oninput = function () {
+	// Detachment laser wavelength input section
+	GetLaserInput();
+	UpdateLaserWavelength();
+};
+document.getElementById("ChangeSaveDirectory").onclick = function () {
+	// Change Save Directory button
+	// Send message to main process to update directory
+	ipc.send("UpdateSaveDirectory", null);
 };
 
 // Display
 
 // Control slider's display
-DisplaySlider.onmouseover = function () {
-	SliderMouseOverFn(0);
+document.getElementById("DisplaySlider1").onmouseover = function () {
+	MainSliderMouseOverFn();
 };
-DisplaySlider.onmouseout = function () {
-	SliderMouseOutFn(0);
+document.getElementById("DisplaySlider1").onmouseout = function () {
+	MainSliderMouseOutFn();
 };
-DisplaySlider.oninput = function () {
-	DisplaySliderFn(); // Update image contrast
-	SliderMouseOverFn(0);
+document.getElementById("DisplaySlider1").oninput = function () {
+	MainDisplaySliderFn(); // Update image contrast
+	MainSliderMouseOverFn();
 };
 
 // Electron Counters
-ResetCounters.onclick = function () {
-	ResetCountersButtonFn();
+document.getElementById("ResetCounters").onclick = function () {
+	// Reset counters button
+	scanCounters.reset();
+	UpdateScanCountDisplays();
 };
 
 /*		e- Monitor		*/
 
 // Buttons
-eChartStartStop.onclick = function () {
-	eChartStartStopFn();
+document.getElementById("eChartStartStop").onclick = function () {
+	// Start/Stop button for e- chart
+	eChartStartStop();
 };
-eChartReset.onclick = function () {
-	eChartResetFn();
+document.getElementById("eChartReset").onclick = function () {
+	// Reset button for e- chart
+	eChartData.reset();
+	eChartData.updateChart(eChart);
 };
 
 // Axes Controls
-eChartYAxisUp.onclick = function () {
-	IncreaseEChartYAxis();
+document.getElementById("eChartYAxisUp").onclick = function () {
+	// Increase e- chart y (vertical) axis scale
+	eChartData.zoomAxis("Y", "increase");
+	eChartData.updateChart(eChart);
+	eChartUpdateAxisLabels();
 };
-eChartYAxisDown.onclick = function () {
-	DecreaseEChartYAxis();
+document.getElementById("eChartYAxisDown").onclick = function () {
+	// Decrease e- chart y (vertical) axis scale
+	eChartData.zoomAxis("Y", "decrease");
+	eChartData.updateChart(eChart);
+	eChartUpdateAxisLabels();
 };
-eChartXAxisUp.onclick = function () {
-	IncreaseEChartXAxis();
+document.getElementById("eChartXAxisUp").onclick = function () {
+	// Increase e- chart x (horizontal) axis scale
+	eChartData.zoomAxis("X", "increase");
+	eChartData.updateChart(eChart);
+	eChartUpdateAxisLabels();
 };
-eChartXAxisDown.onclick = function () {
-	DecreaseEChartXAxis();
+document.getElementById("eChartXAxisDown").onclick = function () {
+	// Decrease e- chart x (horizontal) axis scale
+	eChartData.zoomAxis("X", "decrease");
+	eChartData.cleaveData(); // Get rid of extra data points in chart
+	eChartData.updateChart(eChart);
+	eChartUpdateAxisLabels();
 };
 
 /*		Settings		*/
 
-SaveSettingsButton.onclick = function () {
-	SaveSettingsButtonFn();
+document.getElementById("SaveSettingsButton").onclick = function () {
+	// Save settings button
+	SaveSettings();
 };
 
 /*
@@ -129,7 +173,11 @@ SaveSettingsButton.onclick = function () {
 
 // Execute various functions on application startup
 function Startup() {
-	DepressTabsFn();
+	const saveDirectory = document.getElementById("SaveDirectory");
+	const mainDisplay = document.getElementById("Display");
+	const mainDisplayContext = mainDisplay.getContext("2d");
+
+	SwitchTabs();
 
 	// Get the settings from file
 	ReadSettingsFromFileSync();
@@ -137,27 +185,28 @@ function Startup() {
 	// Apply the settings
 	ApplySettings();
 
-	// Go to Normal Mode tab
-	PressTabFn(NormalMode);
-	//PressTabFn(EMonitor);
+	// Update displays
+	eChartUpdateAxisLabels();
+
+	// Go to Normal Mode tab (ID = 0)
+	SwitchTabs(0);
+
+	// Create accumulated image arrays
+	accumulatedImage.reset();
 
 	// Get todays date (formatted)
-	todaysDate = getFormattedDate();
+	//todaysDate = getFormattedDate();
 
 	// Update CurrentFile and CurrentDirectory displays
-	CurrentFile.value = getCurrentFileName(currentFileSaveDir, todaysDate);
-	SaveDirectory.value = currentFileSaveDir;
+	saveDirectory.value = settings.saveDirectory.currentScan;
 
 	// Find today's previous files JSON file and read
-	startupReadRecentFiles();
+	//tartupReadRecentFiles();
+	previousScans.readScans();
 
 	// Fill display and get image data
-	DisplayContext.fillstyle = "black";
-	DisplayContext.fillRect(0, 0, 1024, 1024);
-	DisplayData = DisplayContext.getImageData(0, 0, 1024, 1024);
-
-	// Update eChart Axes Labels
-	UpdateEChartAxesLabels();
+	mainDisplayContext.fillstyle = "black";
+	mainDisplayContext.fillRect(0, 0, accumulatedImage.width, accumulatedImage.height);
 
 	// Start centroiding
 	ipc.send("StartCentroiding", null);
@@ -166,25 +215,49 @@ function Startup() {
 /*		Tabs		*/
 
 // Depress all of the buttons (to behave like a radio button)
-function DepressTabsFn() {
-	let tablist = [NormalMode, IRMode, EMonitor, PostProcess, Settings];
-	let contentlist = [NormalModeContent, IRModeContent, EMonitorContent, PostProcessContent, SettingsContent];
-	for (let i = 0; i < tablist.length; i++) {
-		tablist[i].classList.remove("pressed-tab");
-		contentlist[i].style.display = "none";
-	}
-}
+// and then activate the tab 'Tab'
+function SwitchTabs(Tab) {
+	// Tab name should be an integer corresponding to the index of tabList
+	// e.g. NormalMode = 0, IRMode = 1, EMonitor = 2, PostProcess = 3, Settings = 4
+	//
+	// If you only want to hide all tabs and show nothing,
+	// call the function with no parameters
 
-// "Press" in a tab by adding the pressed-tab class to it
-function PressTabFn(Tab) {
-	DepressTabsFn();
-	Tab.classList.add("pressed-tab");
-	if (Tab === NormalMode) {
-		NormalModeContent.style.display = "grid";
-	} else if (Tab === EMonitor) {
-		EMonitorContent.style.display = "grid";
-	} else if (Tab === Settings) {
-		SettingsContent.style.display = "grid";
+	// List of each tab section
+	const tabList = [
+		document.getElementById("NormalMode"),
+		document.getElementById("IRMode"),
+		document.getElementById("EMonitor"),
+		document.getElementById("PostProcess"),
+		document.getElementById("Settings"),
+	];
+
+	// Content corresponding to each tab
+	const contentList = [
+		document.getElementById("NormalModeContent"),
+		document.getElementById("IRModeContent"),
+		document.getElementById("EMonitorContent"),
+		document.getElementById("PostProcessContent"),
+		document.getElementById("SettingsContent"),
+	];
+
+	// Set all tabs to be deactivated
+	for (let i = 0; i < tabList.length; i++) {
+		tabList[i].classList.remove("pressed-tab");
+		contentList[i].style.display = "none";
+	}
+
+	// Activate selected tab
+	if (isNaN(Tab) || Tab >= tabList.length || Tab < 0) {
+		// If no arguments were passed, Tab is not a number,
+		// Tab is too large, or Tab is negative,
+		// do not activate any tabs
+		return;
+	} else {
+		// Otherwise activate the selected tab
+		tabList[Tab].classList.add("pressed-tab");
+		contentList[Tab].style.display = "grid";
+		return;
 	}
 }
 
@@ -193,236 +266,348 @@ function PressTabFn(Tab) {
 // Scan Controls
 
 // Start a scan or save it if scan is already started
-function StartSaveButtonFn() {
-	// Change button text
-	if (StartButtonText.innerText === "Start") {
+function StartSaveScan() {
+	const currentFile = document.getElementById("CurrentFile");
+	const i0NCounterUp = document.getElementById("I0NCounterUp");
+	const i0NCounterDown = document.getElementById("I0NCounterDown");
+
+	// Make sure scan is not considered paused
+	scanInfo.paused = false;
+
+	if (!scanInfo.running) {
+		// Button press indicates a new scan should be started
+
 		// Reset counters
-		ResetCountersButtonFn();
-		totalECount = 0;
+		scanInfo.reset();
+		UpdateScanCountDisplays();
 
 		// Reset accumulated image
-		resetAccumulatedImage();
+		accumulatedImage.reset();
+		UpdateAccumulatedImageDisplay(true); // Called with 'true' to reset entire image
 
-		// Start centroiding
-		ScanBool = true;
+		// Disable increment buttons and current file input
+		// That way image isn't saved to two different files
+		currentFile.disabled = true;
+		i0NCounterUp.disabled = true;
+		i0NCounterDown.disabled = true;
 
-		// Change button values
-		StartButtonText.innerText = "Save";
-		StartButtonImg.src = "../ImageSrc/Save.png";
-		Pause.disabled = false; // Make Pause button clickable
-		SingleShot.disabled = true; // Disable SS button
+		// Start centroiding (and auto-saving)
+		scanInfo.startScan();
+	} else {
+		// Button press indicates the current scan should be stopped and saved
 
-		// Keep screen awake
-		requestWakeLock();
-	} else if (StartButtonText.innerText === "Save") {
-		// Stop the scan
-		ScanBool = false;
+		// Stop the scan (and auto-saving)
+		scanInfo.stopScan();
 
-		// Change button values
-		StartButtonText.innerText = "Start";
-		StartButtonImg.src = "../ImageSrc/Play.png";
-		PauseButtonText.innerText = "Pause"; // Reset pause button text & image
-		PauseButtonImg.src = "../ImageSrc/Pause.png";
-		Pause.disabled = true; // Disable pause button
-		SingleShot.disabled = false; // Enable SS button
+		// Save the image
+		scanInfo.saveImage();
 
-		// Save scan information
-		let saveFile = {
-			fileName: CurrentFile.value,
-			mode: WavelengthMode.selectedIndex,
-			wavelength: CurrentWavelength.value,
-			converted: ConvertedWavelength.value,
-			wavenumber: CurrentWavenumber.value,
-			totalFrames: TotalFrames.value,
-			totalECount: TotalECount.value,
-		};
-		// If photon energies are out of bounds, don't save
-		let WL = parseFloat(CurrentWavelength.value);
-		if (100 > WL || WL > 20000) {
-			saveFile.wavelength = "";
-		}
+		// Save the scan information
+		SaveScanInformation();
 
-		// Append to prevFiles
-		prevFiles.push(saveFile);
+		// Re-enable file name controls
+		currentFile.disabled = false;
+		i0NCounterUp.disabled = false;
+		i0NCounterDown.disabled = false;
 
 		// Tick up increment counter
-		I0NCounterUpButtonFn();
+		I0NCounterUp();
+	}
 
-		// Update Recent File Section
-		updateRecentFiles(RecentScansSection, saveFile);
+	// Change start/save and pause button values
+	UpdateStartSaveButtonText();
+	UpdatePauseButtonText();
 
-		let prevFilesPrint = JSON.stringify(prevFiles);
+	// Disable/enable pause and single shot buttons
+	UpdatePauseButtonStatus();
+	UpdateSSButtonStatus();
+}
 
-		// Update Recent Files JSON file
-		fs.writeFile(prevFileSaveDir + "/" + todaysDate + "prevFiles.json", prevFilesPrint, function (err) {
-			if (err) {
-				console.log(err);
+// Change text of Start/Save Button
+// false scan status means text should change from "Start" to "Save"
+function UpdateStartSaveButtonText() {
+	const startButtonImg = document.getElementById("StartButtonImg");
+	const startButtonText = document.getElementById("StartButtonText");
+
+	if (scanInfo.running) {
+		// Scan has been started, change button to "Save"
+		startButtonText.innerText = "Save";
+		startButtonImg.src = "../ImageSrc/Save.png";
+	} else {
+		// Scan has been saved
+		startButtonText.innerText = "Start";
+		startButtonImg.src = "../ImageSrc/Play.png";
+	}
+}
+
+// Change Pause button text
+// true scan status means text should change from "Pause" to "Resume"
+function UpdatePauseButtonText() {
+	const pauseButtonImg = document.getElementById("PauseButtonImg");
+	const pauseButtonText = document.getElementById("PauseButtonText");
+
+	// if paused, change to resume
+	// if not paused, change to pause
+	// if paused and not running, change to pause
+
+	if (scanInfo.paused && scanInfo.running) {
+		// Scan was running, pause button has just been pressed
+		// Change text to "Resume"
+		pauseButtonText.innerText = "Resume";
+		pauseButtonImg.src = "../ImageSrc/Play.png";
+	} else {
+		// Scan has resumed (or been saved), change text back to "Pause"
+		pauseButtonText.innerText = "Pause"; // Reset pause button text & image
+		pauseButtonImg.src = "../ImageSrc/Pause.png";
+	}
+}
+
+// Enable/disable Pause button
+function UpdatePauseButtonStatus() {
+	const pause = document.getElementById("Pause");
+
+	// If scan has been started (scanInfo.running = true), enable button
+	// if scan has been saved (scanInfo.running = false), disable button
+	pause.disabled = !scanInfo.running;
+}
+
+// Enable/disable Single Shot button
+function UpdateSSButtonStatus() {
+	const singleShot = document.getElementById("SingleShot");
+
+	// If scan is running, disable button
+	// If scan is running but paused, enable button
+	// If scan is not running, enable button
+	if (scanInfo.running && !scanInfo.paused) {
+		singleShot.disabled = true;
+	} else {
+		singleShot.disabled = false;
+	}
+}
+
+// Save the scan information
+function SaveScanInformation() {
+	// Add this scan to previousScans
+	previousScans.addScan();
+
+	// Update Recent File Section
+	UpdateRecentFiles(previousScans.recentScan);
+
+	// Save today's previous scans to JSON file
+	previousScans.saveScans();
+}
+
+// Update Recent Files Section with recent scan
+function UpdateRecentFiles(saveFile) {
+	const recentScansSection = document.getElementById("RecentScansSection");
+	let currentMode = saveFile.detachmentMode;
+	let tag; // tag, text, and textNode used for appending <p> elements
+	let text;
+	let textNode;
+
+	for (let key in saveFile) {
+		if (currentMode == 0) {
+			// If standard detachment setup, only write the inputed value
+			// (i.e. use input wavelength, skip converted wavelength)
+			if (key == "convertedWavelength") {
+				continue;
 			}
-		});
-
-		// Let screen sleep
-		// Wrapped in try-catch in case keeping awake failed
-		try {
-			wakeLock.release();
-			wakeLock = null;
-		} catch (err) {
-			console.log(`Could not let sleep: ${err.name}: ${err.message}`);
+		} else {
+			// If not standard setup, only write the converted value
+			// (i.e. use converted wavelength, skip input wavelength)
+			if (key == "inputWavelength") {
+				continue;
+			}
 		}
+
+		// Skip writing the mode
+		if (key == "detachmentMode") {
+			continue;
+		}
+
+		tag = document.createElement("p");
+		if (saveFile[key] != null) {
+			if (typeof saveFile[key] == "number") {
+				text = saveFile[key].toFixed(3).toString();
+			} else {
+				text = saveFile[key].toString();
+			}
+		} else {
+			text = "";
+		}
+		textNode = document.createTextNode(text);
+		tag.appendChild(textNode);
+		recentScansSection.appendChild(tag);
 	}
 }
 
-// Pause or resume current scan
-function PauseButtonFn() {
-	if (PauseButtonText.innerText === "Pause") {
-		// Stop scan
-		ScanBool = false;
+// Remove a scan from the recent scans display
+function RemoveScanFromDisplay(scanIndex) {
+	// scanIndex should be the same index as in previousScans.allScans
+	const recentScansSection = document.getElementById("RecentScansSection");
+	let childIndex; // index of children in recentScans section to remove
 
-		// Change button values
-		PauseButtonText.innerText = "Resume";
-		PauseButtonImg.src = "../ImageSrc/Play.png";
-		SingleShot.disabled = false; // Enable SS Button
-	} else if (PauseButtonText.innerText === "Resume") {
-		// Start scan
-		ScanBool = true;
-
-		// Change button values
-		PauseButtonText.innerText = "Pause";
-		PauseButtonImg.src = "../ImageSrc/Pause.png";
-		SingleShot.disabled = true; // Disable SS Button
+	// Remove the scanIndex'th row from the display
+	// 5 elements per row, so remove elements (scanIndex * 5) to (scanIndex * 5 + 4)
+	// or remove the (scanIndex * 5)th element 5 times
+	for (let _ = 0; _ < 5; _++) {
+		childIndex = scanIndex * 5;
+		recentScansSection.removeChild(recentScansSection.children[childIndex]);
 	}
-}
-
-// Take a single image and prompt save screen
-function SingleShotButtonFn() {
-	console.log("Executed SS");
 }
 
 // Save Controls
 
 // Decrease file counter increment by one
-function I0NCounterDownButtonFn() {
-	let currentCount = parseInt(I0NCounter.value);
-	if (currentCount === 1) {
-		CurrentFile.value = getCurrentFileName(currentFileSaveDir, todaysDate);
-		return;
+function I0NCounterDown() {
+	const currentFile = document.getElementById("CurrentFile");
+	const i0NCounter = document.getElementById("I0NCounter");
+	let currentCount = parseInt(i0NCounter.value);
+
+	if (currentCount > 1) {
+		currentCount -= 1;
 	}
-	I0NCounter.value = currentCount - 1;
-	CurrentFile.value = getCurrentFileName(currentFileSaveDir, todaysDate);
+	i0NCounter.value = currentCount;
+	currentFile.value = getCurrentFileName(currentCount);
 }
 
 // Increase file counter increment by one
-function I0NCounterUpButtonFn() {
-	let currentCount = parseInt(I0NCounter.value);
-	I0NCounter.value = currentCount + 1;
-	CurrentFile.value = getCurrentFileName(currentFileSaveDir, todaysDate);
+function I0NCounterUp() {
+	const currentFile = document.getElementById("CurrentFile");
+	const i0NCounter = document.getElementById("I0NCounter");
+	let currentCount = parseInt(i0NCounter.value);
+
+	currentCount++;
+	i0NCounter.value = currentCount;
+	currentFile.value = getCurrentFileName(currentCount);
 }
 
-// Convert photon energy based on detachment laser setup
-function WavelengthInputFn() {
-	if (CurrentWavelength.value === "") {
-		// No wavelength is entered, so no need to do the rest
-		return;
-	}
-
-	let WL = parseFloat(CurrentWavelength.value);
-	let NewWL;
-
+// Convert photon energy based on detachment laser setup and user input
+function GetLaserInput() {
+	const wavelengthMode = document.getElementById("WavelengthMode");
+	const currentWavelength = document.getElementById("CurrentWavelength");
+	let mode = wavelengthMode.selectedIndex; // Detachment laser setup mode
 	// 0 is Standard, 1 is Doubled, 2 is Raman Shifter, 3 is IR-DFG
-	switch (WavelengthMode.selectedIndex) {
-		case 0:
-			// Standard setup, no need to convert wavelengths
-			NewWL = WL;
-			break;
+	let wavelength = parseFloat(currentWavelength.value); // Measured laser wavelength
 
-		case 1:
-			// Doubled setup, λ' = λ/2
-			NewWL = WL / 2;
-			break;
+	// Update laser information
+	laserInfo.updateMode(mode);
+	laserInfo.updateWavelength(wavelength);
+}
 
-		case 2:
-			// Raman Shifter, λ' (cm^-1) = λ (cm^-1) - 4155.201 cm^-1
-			let WMi = convertNMtoWM(WL); // Convert to cm^-1
-			let WMf = WMi - 4055.201; // Red-shift
-			NewWL = convertWMtoNM(WMf); // Convert back to nm
-			break;
+// Update laser wavelength displays
+function UpdateLaserWavelength() {
+	const convertedWavelength = document.getElementById("ConvertedWavelength");
+	const convertedWavenumber = document.getElementById("CurrentWavenumber");
 
-		case 3:
-			// IR-DFG, 1/λ' = 1/λ - 1/1064
-			NewWL = 1 / (1 / WL - 1 / 1064);
-			break;
-	}
+	// Convert laser energies based on detachment mode
+	laserInfo.convert();
 
-	// Convert to wavenumbers
-	if (100 < NewWL && NewWL < 20000 && WavelengthMode.selectedIndex !== 0) {
-		ConvertedWavelength.value = NewWL.toFixed(3);
-		CurrentWavenumber.value = convertNMtoWM(NewWL).toFixed(2);
-	} else if (100 < NewWL && NewWL < 20000 && WavelengthMode.selectedIndex === 0) {
-		ConvertedWavelength.value = "";
-		CurrentWavenumber.value = convertNMtoWM(NewWL).toFixed(2);
+	// Need if/else in case input was never defined or standard setup is being used
+	if (laserInfo.convertedWavelength != null) {
+		convertedWavelength.value = laserInfo.convertedWavelength.toFixed(3);
 	} else {
-		ConvertedWavelength.value = "";
-		CurrentWavenumber.value = "";
+		convertedWavelength.value = "";
+	}
+	if (laserInfo.convertedWavenumber != null) {
+		convertedWavenumber.value = laserInfo.convertedWavenumber.toFixed(3);
+	} else {
+		convertedWavenumber.value = "";
 	}
 }
 
-// Change which directory to save accumulated image to
-function ChangeSaveDirectoryButtonFn() {
-	ipc.send("UpdateSaveDirectory", null);
+// Update the wavelength input on startup if there's a recent scan with defined wavelength
+function UpdateLaserWavelengthInput() {
+	const wavelengthMode = document.getElementById("WavelengthMode");
+	const currentWavelength = document.getElementById("CurrentWavelength");
+
+	// Update displays
+	wavelengthMode.selectedIndex = laserInfo.detachmentMode;
+	if (laserInfo.inputWavelength) {
+		currentWavelength.value = laserInfo.inputWavelength.toFixed(3);
+	}
 }
 
-// Display
+/*
+Probably useful to create a unitConversions.js file to do all of these
+*/
+
+// Convert wavelength in nm to wavenumbers
+function convertNMtoWN(wavelength) {
+	return Math.pow(10, 7) / wavelength;
+}
+
+// Convert wavenumbers to wavelength in nm
+function convertWNtoNM(wavenumber) {
+	// It's the same as NMtoWN, but I think it's easier to read the code this way
+	return Math.pow(10, 7) / wavenumber;
+}
 
 // Update Accumulated Image contrast
-function DisplaySliderFn() {
-	let contrastValue = parseFloat(DisplaySlider.value);
-	let contrastIncrement = contrastValue * 100;
-	for (let Y = 0; Y < 1024; Y++) {
-		for (let X = 0; X < 1024; X++) {
-			let AccPixValue = 255 - AccumulatedImage[Y][X] * contrastIncrement;
-			if (AccPixValue > 0) {
-				DisplayData.data[4 * (1024 * Y + X) + 3] = AccPixValue;
+function MainDisplaySliderFn() {
+	// Need to add functionality so that it works with IR stuff too
+	// Same for mouseover and mouseout
+	const mainDisplay = document.getElementById("Display");
+	// !!! Should probably change this ID to MainDisplay
+	const mainDisplayContext = mainDisplay.getContext("2d");
+	const mainDisplayData = mainDisplayContext.getImageData(0, 0, accumulatedImage.width, accumulatedImage.height);
+	const mainDisplaySlider = document.getElementById("DisplaySlider1");
+	let contrastValue = parseFloat(mainDisplaySlider.value);
+	let contrastIncrement = contrastValue * 300;
+	let pixValue;
+
+	for (let Y = 0; Y < accumulatedImage.height; Y++) {
+		for (let X = 0; X < accumulatedImage.width; X++) {
+			pixValue = 255 - accumulatedImage.normal[Y][X] * contrastIncrement;
+			if (pixValue > 0) {
+				mainDisplayData.data[4 * (accumulatedImage.width * Y + X) + 3] = pixValue;
 			} else {
-				DisplayData.data[4 * (1024 * Y + X) + 3] = 0;
+				mainDisplayData.data[4 * (accumulatedImage.width * Y + X) + 3] = 0;
 			}
 		}
 	}
-	DisplayContext.putImageData(DisplayData, 0, 0);
+	mainDisplayContext.putImageData(mainDisplayData, 0, 0);
 }
 
 // Create hover color change for sliders
-function SliderMouseOverFn(sliderIndex) {
-	let value = (100 * (Sliders[sliderIndex].value - Sliders[sliderIndex].min)) / (Sliders[sliderIndex].max - Sliders[sliderIndex].min);
-	let backgroundBlue = "hsla(225, 50%, 65%, 1)";
-	Sliders[sliderIndex].style.background =
-		"linear-gradient(to right, " + backgroundBlue + " 0%, " + backgroundBlue + " " + value + "%, hsla(225, 20%, 25%, 1) 0%)";
+function MainSliderMouseOverFn() {
+	const mainDisplaySlider = document.getElementById("DisplaySlider1");
+	const backgroundBlue = "hsla(225, 50%, 65%, 1)";
+	let sliderValue = (100 * (mainDisplaySlider.value - mainDisplaySlider.min)) / (mainDisplaySlider.max - mainDisplaySlider.min);
+
+	mainDisplaySlider.style.background = `linear-gradient(to right, ${backgroundBlue} 0%, ${backgroundBlue} ${sliderValue}%, hsla(225, 20%, 25%, 1) 0%)`;
 }
 
-function SliderMouseOutFn(sliderIndex) {
-	Sliders[sliderIndex].style.background = "hsla(225, 20%, 25%, 1)";
-}
+function MainSliderMouseOutFn() {
+	const mainDisplaySlider = document.getElementById("DisplaySlider1");
 
-// Electron counters
-
-// Reset electron & frame counters
-function ResetCountersButtonFn() {
-	TotalFrames.value = 0;
-	TotalECount.value = 0;
+	mainDisplaySlider.style.background = "hsla(225, 20%, 25%, 1)";
 }
 
 /*		e- Monitor		*/
 
+/*
+
+Should try adding an eChartData object that does all the update processing,
+and then say 'eChart.data.labels = eChartData.labels' or something
+
+*/
+
 // Start/stop the electron counter chart
-function eChartStartStopFn() {
-	if (eChartStartButtonText.innerText === "Start") {
+function eChartStartStop() {
+	const eChartStartButtonText = document.getElementById("eChartStartButtonText");
+	const eChartStartButtonImg = document.getElementById("eChartStartButtonImg");
+
+	if (!eChartData.running) {
 		// Start chart
-		eChartBool = true;
+		eChartData.start();
 
 		// Change Button text and image
 		eChartStartButtonText.innerText = "Stop";
 		eChartStartButtonImg.src = "../ImageSrc/Pause.png";
-	} else if (eChartStartButtonText.innerText === "Stop") {
+	} else {
 		// Stop chart
-		eChartBool = false;
+		eChartData.stop();
 
 		// Change button text and image
 		eChartStartButtonText.innerText = "Start";
@@ -430,175 +615,73 @@ function eChartStartStopFn() {
 	}
 }
 
-// Reset chart
-function eChartResetFn() {
-	let dataLength = eChart.data.labels.length;
-	for (let i = 0; i < dataLength; i++) {
-		eChart.data.labels.pop(); // Remove xAxis data
-		eChart.data.datasets[0].data.pop(); // Remove CCL spot counts
-		eChart.data.datasets[1].data.pop(); // Remove hybrid spot counts
-	}
-	eChart.update(); // Update chart
+// Update the displayed max values for each axis
+function eChartUpdateAxisLabels() {
+	const xAxis = document.getElementById("eChartXAxis");
+	const yAxis = document.getElementById("eChartYAxis");
+	const xAxisUp = document.getElementById("eChartXAxisUp");
+	const xAxisDown = document.getElementById("eChartXAxisDown");
+	const yAxisUp = document.getElementById("eChartYAxisUp");
+	const yAxisDown = document.getElementById("eChartYAxisDown");
 
-	frameCounter = 0; // temp thing (replace with frame counter)
-}
+	// Write current max axis values
+	xAxis.value = settings.eChart.xAxisMax;
+	yAxis.value = settings.eChart.yAxisMax;
 
-// Increase the max value of the Y axis on the chart
-function IncreaseEChartYAxis() {
-	if (eChartYAxisDown.disabled) {
-		// Enable YDown button if disabled
-		eChartYAxisDown.disabled = false;
-	}
-
-	if (eChartMaxYAxis <= 15) {
-		// Increase by 5 from 5 to 20
-		eChartMaxYAxis += 5;
-	} else if (eChartMaxYAxis <= 90) {
-		// Increase by 10 from 20 to 100
-		eChartMaxYAxis += 10;
-	} else {
-		// Make sure it's not more than 100
-		eChartMaxYAxis = 100;
-	}
-
-	if (eChartMaxYAxis === 100) {
-		// Disable YUp button
-		eChartYAxisUp.disabled = true;
-	}
-
-	UpdateEChartAxesLabels();
-	SaveSettingsButtonFn(); // Save the max axis values to file
-}
-
-// Decrease the max value of the Y axis on the chart
-function DecreaseEChartYAxis() {
-	if (eChartYAxisUp.disabled) {
-		// Enable YUp if disabled
-		eChartYAxisUp.disabled = false;
-	}
-
-	if (eChartMaxYAxis <= 5) {
-		// Make sure it's not less than 5
-		eChartMaxYAxis = 5;
-	} else if (eChartMaxYAxis <= 20) {
-		// Decrease by 5 from 20 to 5
-		eChartMaxYAxis -= 5;
-	} else {
-		// Decrease by 10 from 100 to 20
-		eChartMaxYAxis -= 10;
-	}
-
-	if (eChartMaxYAxis === 5) {
-		// Disable YDown button
-		eChartYAxisDown.disabled = true;
-	}
-
-	UpdateEChartAxesLabels();
-	SaveSettingsButtonFn(); // Save the max axis values to file
-}
-
-// Decrease the max value of the X axis on the chart
-// Go to updateAvgECount() in /* Various Functions */ to find implementation of eChartMaxXAxis
-function IncreaseEChartXAxis() {
-	if (eChartXAxisDown.disabled) {
-		// Enable YDown button if disabled
-		eChartXAxisDown.disabled = false;
-	}
-
-	if (eChartMaxXAxis <= 15) {
-		// Increase by 5 from 5 to 20
-		eChartMaxXAxis += 5;
-	} else if (eChartMaxXAxis <= 90) {
-		// Increase by 10 from 20 to 100
-		eChartMaxXAxis += 10;
-	} else if (eChartMaxXAxis <= 475) {
-		// Increase by 25 from 100 to 500
-		eChartMaxXAxis += 25;
-	} else {
-		// Make sure it's not more than 500
-		eChartMaxXAxis = 500;
-	}
-
-	if (eChartMaxXAxis === 500) {
-		// Disable YUp button
-		eChartXAxisUp.disabled = true;
-	}
-
-	UpdateEChartAxesLabels();
-	SaveSettingsButtonFn(); // Save the max axis values to file
-}
-
-// Decrease the max value of the X axis on the chart
-// Go to updateAvgECount() in /* Various Functions */ to find implementation of eChartMaxXAxis
-function DecreaseEChartXAxis() {
-	if (eChartXAxisUp.disabled) {
-		// Enable YUp if disabled
-		eChartXAxisUp.disabled = false;
-	}
-
-	if (eChartMaxXAxis <= 5) {
-		// Make sure it's not less than 5
-		eChartMaxXAxis = 5;
-	} else if (eChartMaxXAxis <= 20) {
-		// Decrease by 5 from 20 to 5
-		eChartMaxXAxis -= 5;
-	} else {
-		// Decrease by 10 from 100 to 20
-		eChartMaxXAxis -= 10;
-	}
-
-	if (eChartMaxXAxis === 5) {
-		// Disable YDown button
-		eChartXAxisDown.disabled = true;
-	}
-
-	UpdateEChartAxesLabels();
-	SaveSettingsButtonFn(); // Save the max axis values to file
-}
-
-// Update the max axis values' displays for each axis
-function UpdateEChartAxesLabels() {
-	eChart.options.scales.y.max = eChartMaxYAxis;
-	eChartYAxis.value = eChartMaxYAxis;
-	eChartXAxis.value = eChartMaxXAxis;
+	// Disable/enable buttons appropriately
+	xAxisUp.disabled = eChartData.xAxisUpDisabled;
+	xAxisDown.disabled = eChartData.xAxisDownDisabled;
+	yAxisUp.disabled = eChartData.yAxisUpDisabled;
+	yAxisDown.disabled = eChartData.yAxisDownDisabled;
 }
 
 /*		Settings		*/
 
 // Save the settings to SettingsList & Write to JSON file
-function SaveSettingsButtonFn() {
-	SettingsList.Camera.AoIx = parseFloat(AoIx.value);
-	SettingsList.Camera.AoIy = parseFloat(AoIy.value);
-	SettingsList.Camera.xOffset = parseFloat(xOffset.value);
-	SettingsList.Camera.yOffset = parseFloat(yOffset.value);
-	SettingsList.Camera.ExposureTime = parseFloat(ExposureTime.value);
-	SettingsList.Camera.Gain = parseFloat(Gain.value);
-	SettingsList.Camera.GainBoost = GainBoost.checked;
-	if (InternalTrigger.checked) {
-		SettingsList.Camera.Trigger = "Internal Trigger";
-	} else if (RisingEdge.checked) {
-		SettingsList.Camera.Trigger = "Rising Edge";
-	} else if (FallingEdge.checked) {
-		SettingsList.Camera.Trigger = "Falling Edge";
+function SaveSettings() {
+	const xAoI = document.getElementById("AoIx");
+	const yAoI = document.getElementById("AoIy");
+	const xOffset = document.getElementById("xOffset");
+	const yOffset = document.getElementById("yOffset");
+	const exposureTime = document.getElementById("ExposureTime");
+	const gain = document.getElementById("Gain");
+	const gainBoost = document.getElementById("GainBoost");
+	const internalTrigger = document.getElementById("InternalTrigger");
+	const risingEdge = document.getElementById("RisingEdge");
+	const fallingEdge = document.getElementById("FallingEdge");
+	const triggerDelay = document.getElementById("TriggerDelay");
+	const rawAccumulation = document.getElementById("RawAccumulation");
+	const centroidAccumulation = document.getElementById("CentroidAccumulation");
+	const hybridMethod = document.getElementById("HybridMethod");
+	const centroidBinSize = document.getElementById("CentroidBinSize");
+
+	settings.camera.xAoI = parseFloat(xAoI.value);
+	settings.camera.yAoI = parseFloat(yAoI.value);
+	settings.camera.xOffset = parseFloat(xOffset.value);
+	settings.camera.yOffset = parseFloat(yOffset.value);
+	settings.camera.exposureTime = parseFloat(exposureTime.value);
+	settings.camera.gain = parseFloat(gain.value);
+	settings.camera.gainBoost = gainBoost.checked;
+
+	if (internalTrigger.checked) {
+		settings.camera.trigger = "Internal Trigger";
+	} else if (risingEdge.checked) {
+		settings.camera.trigger = "Rising Edge";
+	} else if (fallingEdge.checked) {
+		settings.camera.trigger = "Falling Edge";
 	}
-	SettingsList.Camera.TriggerDelay = parseFloat(TriggerDelay.value);
+	settings.camera.triggerDelay = parseFloat(triggerDelay.value);
 
-	if (RawAccumulation.checked) {
-		SettingsList.Centroid.Accumulation = "Raw";
-	} else if (CentroidAccumulation.checked) {
-		SettingsList.Centroid.Accumulation = "Centroid";
+	if (rawAccumulation.checked) {
+		settings.centroid.accumulation = "Raw";
+	} else if (centroidAccumulation.checked) {
+		settings.centroid.accumulation = "Centroid";
 	}
-	SettingsList.Centroid.HybridMethod = HybridMethod.checked;
-	SettingsList.Centroid.BinSize = parseFloat(CentroidBinSize.value);
+	settings.centroid.hybridMethod = hybridMethod.checked;
+	settings.centroid.binSize = parseFloat(centroidBinSize.value);
 
-	SettingsList.eChart.MaxYAxis = eChartMaxYAxis;
-	SettingsList.eChart.MaxXAxis = eChartMaxXAxis;
-
-	let SettingsListJSON = JSON.stringify(SettingsList);
-
-	fs.writeFile("./Settings/SettingsList.JSON", SettingsListJSON, function () {
-		console.log("Settings Saved!");
-	});
+	// Write settings to file
+	settings.save();
 
 	// Apply the settings
 	ApplySettings();
@@ -606,39 +689,50 @@ function SaveSettingsButtonFn() {
 
 // Get Settings from SettingsList.JSON and update values
 function ReadSettingsFromFileSync() {
-	// Read data from file
+	const xAoI = document.getElementById("AoIx");
+	const yAoI = document.getElementById("AoIy");
+	const xOffset = document.getElementById("xOffset");
+	const yOffset = document.getElementById("yOffset");
+	const exposureTime = document.getElementById("ExposureTime");
+	const gain = document.getElementById("Gain");
+	const gainBoost = document.getElementById("GainBoost");
+	const internalTrigger = document.getElementById("InternalTrigger");
+	const risingEdge = document.getElementById("RisingEdge");
+	const fallingEdge = document.getElementById("FallingEdge");
+	const triggerDelay = document.getElementById("TriggerDelay");
+	const rawAccumulation = document.getElementById("RawAccumulation");
+	const centroidAccumulation = document.getElementById("CentroidAccumulation");
+	const hybridMethod = document.getElementById("HybridMethod");
+	const centroidBinSize = document.getElementById("CentroidBinSize");
+
 	try {
 		// Check if the settings file exists
-		let JSONdata = fs.readFileSync("./Settings/SettingsList.JSON");
-		let data = JSON.parse(JSONdata);
-		SettingsList = data;
+		settings.read();
 
-		AoIx.value = SettingsList.Camera.AoIx;
-		AoIy.value = SettingsList.Camera.AoIy;
-		xOffset.value = SettingsList.Camera.xOffset;
-		yOffset.value = SettingsList.Camera.yOffset;
-		ExposureTime.value = SettingsList.Camera.ExposureTime;
-		Gain.value = SettingsList.Camera.Gain;
-		GainBoost.checked = SettingsList.Camera.GainBoost;
-		if (SettingsList.Camera.Trigger === "Internal Trigger") {
-			InternalTrigger.checked = true;
-		} else if (SettingsList.Camera.Trigger === "Rising Edge") {
-			RisingEdge.checked = true;
-		} else if (SettingsList.Camera.Trigger === "Falling Edge") {
-			FallingEdge.checked = true;
+		// Update settings display
+		xAoI.value = settings.camera.xAoI;
+		yAoI.value = settings.camera.yAoI;
+		xOffset.value = settings.camera.xOffset;
+		yOffset.value = settings.camera.yOffset;
+		exposureTime.value = settings.camera.exposureTime;
+		gain.value = settings.camera.gain;
+		gainBoost.checked = settings.camera.gainBoost;
+		if (settings.camera.trigger === "Internal Trigger") {
+			internalTrigger.checked = true;
+		} else if (settings.camera.trigger === "Rising Edge") {
+			risingEdge.checked = true;
+		} else if (settings.camera.trigger === "Falling Edge") {
+			fallingEdge.checked = true;
 		}
-		TriggerDelay.value = SettingsList.Camera.TriggerDelay;
+		triggerDelay.value = settings.camera.triggerDelay;
 
-		if (SettingsList.Centroid.Accumulation === "Raw") {
-			RawAccumulation.checked = true;
-		} else if (SettingsList.Centroid.Accumulation === "Centroid") {
-			CentroidAccumulation.checked = true;
+		if (settings.centroid.accumulation === "Raw") {
+			rawAccumulation.checked = true;
+		} else if (settings.centroid.accumulation === "Centroid") {
+			centroidAccumulation.checked = true;
 		}
-		HybridMethod.checked = SettingsList.Centroid.HybridMethod;
-		CentroidBinSize.value = SettingsList.Centroid.BinSize;
-
-		eChartMaxYAxis = SettingsList.eChart.MaxYAxis;
-		eChartMaxXAxis = SettingsList.eChart.MaxXAxis;
+		hybridMethod.checked = settings.centroid.hybridMethod;
+		centroidBinSize.value = settings.centroid.binSize;
 	} catch {
 		// If the settings file doesn't exist, use version from mainDefinitions.js
 	}
@@ -647,7 +741,11 @@ function ReadSettingsFromFileSync() {
 // Apply the settings after reading
 function ApplySettings() {
 	// Turn hybrid method on/off
-	ipc.send("HybridMethod", SettingsList.Centroid.HybridMethod);
+	ipc.send("HybridMethod", settings.centroid.hybridMethod);
+	// More stuff for camera control to come
+
+	// Check electron chart button status
+	eChartData.checkDisable();
 }
 
 /*
@@ -667,24 +765,107 @@ ipc.on("LVImageUpdate", function (event, obj) {
 	//		calcCenters
 
 	// Update average number of electrons
-	updateAvgECount(obj.calcCenters);
+	averageCount.update(obj.calcCenters);
+	UpdateAverageCountDisplays();
 
-	// Only update these if currently taking a scan
-	if (ScanBool) {
+	// Only update these if currently taking a scan that isn't paused
+	if (scanInfo.running && !scanInfo.paused) {
 		// Update number of electrons
-		updateECount(obj.calcCenters);
-
-		// Update number of frames
-		updateFrameCount();
+		scanInfo.update(obj.calcCenters);
+		UpdateScanCountDisplays();
 
 		// Update Accumulated View
-		updateAccumulatedImage(obj.calcCenters);
+		accumulatedImage.update(obj.calcCenters);
+		UpdateAccumulatedImageDisplay();
+	}
+
+	// Update eChart if it's running
+	if (eChartData.running) {
+		eChartData.updateData(obj.calcCenters);
+		eChartData.updateChart(eChart);
 	}
 });
 
+// Update the accumulated image display
+function UpdateAccumulatedImageDisplay(resetBoolean) {
+	// If function is called with 'true' as argument, resets entire image
+	// Need to add functionality so that it works with IR stuff too
+	const display = document.getElementById("Display");
+	const displayContext = display.getContext("2d");
+	let displayData = displayContext.getImageData(0, 0, accumulatedImage.width, accumulatedImage.height);
+	const displaySlider = document.getElementById("DisplaySlider1");
+	let contrastValue = parseFloat(displaySlider.value);
+	let contrastIncrement = contrastValue * 300;
+	let pixValue;
+
+	for (let Y = 0; Y < accumulatedImage.height; Y++) {
+		for (let X = 0; X < accumulatedImage.width; X++) {
+			if (accumulatedImage.normal[Y][X] || resetBoolean) {
+				pixValue = 255 - accumulatedImage.normal[Y][X] * contrastIncrement;
+				if (pixValue > 0) {
+					displayData.data[4 * (accumulatedImage.width * Y + X) + 3] = pixValue;
+				} else {
+					displayData.data[4 * (accumulatedImage.width * Y + X) + 3] = 0;
+				}
+			}
+		}
+	}
+	displayContext.putImageData(displayData, 0, 0);
+}
+
+// Update the average counters on the e- monitor page
+function UpdateAverageCountDisplays() {
+	const totalAverage = document.getElementById("AvgECount");
+	const cclAverage = document.getElementById("eChartCCLAvg");
+	const hybridAverage = document.getElementById("eChartHybridAvg");
+	const eChartTotalAverage = document.getElementById("eChartTotalAvg");
+
+	if (averageCount.updateCounter === averageCount.updateFrequency) {
+		totalAverage.value = averageCount.getTotalAverage();
+		cclAverage.value = averageCount.getCCLAverage();
+		hybridAverage.value = averageCount.getHybridAverage();
+		eChartTotalAverage.value = averageCount.getTotalAverage();
+
+		averageCount.updateCounter = 0;
+	} else {
+		averageCount.updateCounter++;
+	}
+	// Need to add bit about updating calc time
+}
+
+// Update the total frames and electron counters
+function UpdateScanCountDisplays() {
+	const totalFrames = document.getElementById("TotalFrames");
+	const totalElectrons = document.getElementById("TotalECount");
+
+	totalFrames.value = scanInfo.frameCount;
+	totalElectrons.value = scanInfo.getTotalCount();
+}
+
 // Receive message about changing Current File Save Directory
-ipc.on("NewSaveDirectory", function (event, arg) {
-	SaveDirectory.value = arg.toString();
+ipc.on("NewSaveDirectory", function (event, returnedDirectory) {
+	const saveDirectory = document.getElementById("SaveDirectory");
+
+	settings.saveDirectory.currentScan = returnedDirectory.toString();
+	saveDirectory.value = settings.saveDirectory.currentScan;
+});
+
+ipc.on("closing-main-window", () => {
+	// This works!
+	// So here is where I can command it to save the settings list
+	// and update previous Scans to include one if it's currently running but not saved
+	// If window was closed while a scan was running, save the scan before closing
+	if (scanInfo.running) {
+		// Stop the scan (and auto-saving)
+		scanInfo.stopScan();
+		// Save the image
+		//await scanInfo.saveImage();
+		// Add this scan to previousScans
+		previousScans.addScan();
+		// Save today's previous scans to JSON file
+		previousScans.saveScans();
+	}
+	ipc.send("closing-main-window-received", settings);
 });
 
 /* When update e- counters on main page, also update on e- Monitor page
@@ -713,22 +894,31 @@ function getFormattedDate() {
 }
 
 // Format file name as MMDDYY_iXX_1024.i0N
-function getCurrentFileName(current_dir, todays_date) {
-	let fileString = todays_date + "i" + ("0" + I0NCounter.value).slice(-2) + "_1024.i0N";
-	let checked = checkCurrentFile(current_dir, fileString);
+function getCurrentFileName(ionCounter) {
+	let todaysDate = getFormattedDate();
+	// Slice here makes sure 0 is not included if ionCounter > 9
+	let increment = ("0" + ionCounter).slice(-2);
+	let fileString = `${todaysDate}i${increment}_1024.i0N`;
+	let checked = checkCurrentFile(settings.saveDirectory.currentScan, fileString);
+
+	// Update file name in scan information
+	scanInfo.fileName = fileString;
+
+	// Make Alert system it's own function
+	fileTakenAlert = document.getElementById("FileTakenAlert");
 	if (checked) {
-		FileTakenAlert.classList.remove("noHover");
-		FileTakenAlert.style.visibility = "visible";
+		fileTakenAlert.classList.remove("noHover");
+		fileTakenAlert.style.visibility = "visible";
 	} else {
-		FileTakenAlert.classList.add("noHover");
-		FileTakenAlert.style.visibility = "hidden";
+		fileTakenAlert.classList.add("noHover");
+		fileTakenAlert.style.visibility = "hidden";
 	}
 	return fileString;
 }
 
 // Check if file in Current File exists
 function checkCurrentFile(current_dir, file_string) {
-	let currentFile = current_dir + file_string;
+	let currentFile = current_dir + "/" + file_string;
 	if (fs.existsSync(currentFile)) {
 		return true;
 	} else {
@@ -736,209 +926,22 @@ function checkCurrentFile(current_dir, file_string) {
 	}
 }
 
-// Update Recent Files Section with recent scan
-function updateRecentFiles(recent_scans_section, saveFile) {
-	let currentMode = saveFile.mode;
-	for (let key in saveFile) {
-		if (currentMode === 0) {
-			// If standard detachment setup, only write the inputed value
-			// (i.e. use current wavelength, skip converted wavelength)
-			if (key == "converted") {
-				continue;
-			}
-		} else {
-			// If not standard setup, only write the converted value
-			// (i.e. use converted wavelength, skip current wavelength)
-			if (key == "wavelength") {
-				continue;
-			}
-		}
+// ----------------------------------------------- //
 
-		// Skip writing the mode
-		if (key == "mode") {
-			continue;
-		}
-
-		let tag = document.createElement("p");
-		let text = document.createTextNode(saveFile[key].toString());
-		tag.appendChild(text);
-		recent_scans_section.appendChild(tag);
-	}
-}
-
-// On startup, check if there is already a json file for today and read it
-function startupReadRecentFiles() {
-	let fileName = prevFileSaveDir + "/" + todaysDate + "prevFiles.json";
-	let incValue = parseFloat(I0NCounter.value);
-	// Check if that file exists
-	fs.stat(fileName, function (err, stats) {
-		if (err) {
-			console.log(err);
-		} else {
-			// Read it
-			fs.readFile(fileName, function (err, JSONdata) {
-				let data = JSON.parse(JSONdata);
-				// Update I0NCounter
-				incValue += data.length;
-				I0NCounter.value = incValue;
-				CurrentFile.value = getCurrentFileName(currentFileSaveDir, todaysDate);
-				// Make wavelength mode and wavelength the one previously used
-				let currentMode = data[data.length - 1].mode;
-				WavelengthMode.selectedIndex = currentMode;
-				let CWL = data[data.length - 1].wavelength;
-				CurrentWavelength.value = CWL;
-				WavelengthInputFn();
-				// Update prevFiles
-				for (let i = 0; i < data.length; i++) {
-					prevFiles.push(data[i]);
-					updateRecentFiles(RecentScansSection, data[i]);
-				}
-			});
-		}
+function doit() {
+	console.time("Writing");
+	console.time("Executing");
+	fs.writeFile(settings.saveDirectory.currentScan + "/temp.txt", accumulatedImage.convertToString("normal"), () => {
+		console.log("Done");
+		console.timeEnd("Writing");
+		console.time("Executing Rename");
+		console.time("Rename");
+		fs.rename(settings.saveDirectory.currentScan + "/temp.txt", settings.saveDirectory.currentScan + "/image.txt", () => {
+			console.timeEnd("Rename");
+		});
+		console.timeEnd("Executing Rename");
 	});
-}
-
-// Update accumulated image
-function updateAccumulatedImage(calcCenters) {
-	let contrastValue = parseFloat(DisplaySlider.value);
-	let contrastIncrement = contrastValue * 100;
-	for (let k = 0; k < 2; k++) {
-		for (let i = 0; i < calcCenters[0].length; i++) {
-			let xCenter = Math.round((calcCenters[0][i][0] * 4.0) / 3.0);
-			let yCenter = Math.round((calcCenters[0][i][1] * 4.0) / 3.0);
-			AccumulatedImage[yCenter][xCenter]++;
-
-			// Update image
-			let AccPixValue = 255 - AccumulatedImage[yCenter][xCenter] * contrastIncrement;
-			if (AccPixValue > 0) {
-				DisplayData.data[4 * (1024 * yCenter + xCenter) + 3] = AccPixValue;
-			} else {
-				DisplayData.data[4 * (1024 * yCenter + xCenter) + 3] = 0;
-			}
-		}
-	}
-	// Send updated image to screen
-	DisplayContext.putImageData(DisplayData, 0, 0);
-}
-
-function resetAccumulatedImage() {
-	// Reset accumulated image
-	AccumulatedImage = Array.from(Array(1024), () => new Array(1024).fill(0));
-
-	// Reset accumulated image display
-	for (let i = 0; i < 1024 * 1024; i++) {
-		DisplayData.data[4 * i + 3] = 255;
-	}
-	DisplayContext.putImageData(DisplayData, 0, 0);
-}
-
-// Update total electron counter
-function updateECount(calcCenters) {
-	let CCLCount = calcCenters[0].length;
-	let HybridCount = calcCenters[1].length;
-	let eCount = CCLCount + HybridCount;
-	totalECount += eCount;
-	TotalECount.value = getSciNot(totalECount); // Push current total electron count to normal mode screen
-}
-
-// Update average electron counter
-function updateAvgECount(calcCenters) {
-	// Get electron counts
-	let CCLCount = calcCenters[0].length;
-	let HybridCount = calcCenters[1].length;
-	let eCount = CCLCount + HybridCount;
-
-	// Add to respective arrays
-	PreviousCCLCounts.push(CCLCount);
-	PreviousHybridCounts.push(HybridCount);
-	PreviousElectronCounts.push(eCount);
-
-	// Make sure arrays are only 10 frames long
-	if (PreviousCCLCounts.length > 10) {
-		PreviousCCLCounts.shift();
-	}
-	if (PreviousHybridCounts.length > 10) {
-		PreviousHybridCounts.shift();
-	}
-	if (PreviousElectronCounts.length > 10) {
-		PreviousElectronCounts.shift();
-	}
-
-	// Update averages if avgUpdateCounter is large enough
-	if (avgUpdateCounter === 5) {
-		// Get averages and push to counters
-		let avgCCLECount = getAvg(PreviousCCLCounts).toFixed(2);
-		let avgHybridECount = getAvg(PreviousHybridCounts).toFixed(2);
-		let avgTotalECount = getAvg(PreviousElectronCounts).toFixed(2);
-		eChartCCLAvg.value = avgCCLECount;
-		eChartHybridAvg.value = avgHybridECount;
-		eChartTotalAvg.value = avgTotalECount;
-		AvgECount.value = avgTotalECount;
-
-		// Reset avgUpdateCounter
-		avgUpdateCounter = 0;
-	}
-
-	// Add electron counts to eChart if started
-	if (eChartBool) {
-		eChart.data.labels.push(frameCounter);
-		eChart.data.datasets[0].data.push(CCLCount); // Add single spot count
-		eChart.data.datasets[1].data.push(CCLCount + HybridCount); // Add overlapping spot count
-		frameCounter++;
-
-		// Make sure chart only contains certain number of data points
-		while (eChart.data.datasets[0].data.length > eChartMaxXAxis) {
-			eChart.data.labels.shift(); // Delete first data point from array
-			eChart.data.datasets[0].data.shift();
-			eChart.data.datasets[1].data.shift();
-		}
-
-		eChart.update("none"); // Update chart
-	}
-
-	// Update average update counter
-	avgUpdateCounter++;
-}
-
-// Update total frame counter
-function updateFrameCount() {
-	let totalFrames = parseFloat(TotalFrames.value);
-	totalFrames++;
-	TotalFrames.value = totalFrames;
-}
-
-// Convert wavelength in nm to wavenumbers
-function convertNMtoWM(wavelength) {
-	return Math.pow(10, 7) / wavelength;
-}
-
-// Convert wavenumbers to wavelength in nm
-function convertWMtoNM(wavenumber) {
-	// It's the same as NMtoWM, but I think it's easier to read the code this way
-	return Math.pow(10, 7) / wavenumber;
-}
-
-// Get num in scientific notation
-function getSciNot(num, decimalPlaces) {
-	// Default decimal places is 3;
-	let decPlaces = decimalPlaces || 3;
-	if (num < 1) {
-		// If exponent is negative, do nothing
-		return num.toExponential(decPlaces).toString();
-	} else {
-		numStr = num.toExponential(decPlaces).toString();
-		numStr = numStr.substr(0, numStr.length - 2) + numStr.slice(-1);
-		return numStr;
-	}
-}
-
-// Get average value of an array
-function getAvg(arr) {
-	let sum = 0;
-	arr.forEach(function (val) {
-		sum += val;
-	});
-	return sum / arr.length;
+	console.timeEnd("Executing");
 }
 
 // Keep the screen awake
