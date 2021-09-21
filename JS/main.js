@@ -38,7 +38,7 @@ function createMainWindow() {
 	});
 
 	win.loadFile("HTML/mainWindow.html");
-	win.webContents.openDevTools();
+	//win.webContents.openDevTools();
 
 	return win;
 }
@@ -60,7 +60,7 @@ function createLVWindow() {
 	});
 
 	win.loadFile("HTML/LVWindow.html");
-	//win.webContents.openDevTools();
+	win.webContents.openDevTools();
 
 	return win;
 }

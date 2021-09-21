@@ -1,0 +1,60 @@
+* {
+	box-sizing: border-box;
+	font-family: helvetica;
+}
+
+html,
+body {
+	background: hsl(225, 20%, 35%);
+}
+
+body {
+	display: grid;
+	grid-template-columns: 784px 1fr;
+	grid-template-areas: "Display Information";
+	overflow-y: hidden;
+}
+
+.white-text {
+	color: whitesmoke;
+}
+
+.background-lighter-blue {
+	background: hsl(225, 20%, 40%);
+	border-radius: 7px;
+}
+
+.input-read {
+	background: hsla(225, 20%, 80%, 1);
+	border: 1px solid hsla(225, 20%, 10%, 1);
+	border-radius: 3px;
+}
+.input-read:focus-visible {
+	border: 1px solid hsla(225, 20%, 10%, 1);
+	outline: none;
+	outline-offset: 0;
+}
+
+#LiveVideoView {
+	border-radius: 15px;
+	background: white;
+	grid-area: "Display";
+}
+
+#RightSide {
+	padding: 20px;
+	grid-area: "Information";
+}
+
+#CountInformation {
+	padding: 20px;
+}
+
+#eChart {
+	background: lightgray;
+	max-height: 200px;
+	max-width: 300px;
+	border-radius: 10px;
+	border: 1.5px solid black;
+	padding: 10px;
+}

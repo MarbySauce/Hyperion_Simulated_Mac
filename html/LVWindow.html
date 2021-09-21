@@ -3,10 +3,19 @@
 	<head>
 		<meta charset="UTF-8" />
 		<title>Live Video</title>
+		<link href="../css/LVWindow.css" rel="stylesheet" />
 	</head>
 
-	<body style="background: rgb(255, 255, 255)">
-		<canvas id="LiveVideoView" width="768" height="768" style="border: 1px solid #000000; background: rgb(255, 255, 255)"></canvas>
+	<body>
+		<canvas id="LiveVideoView" width="768" height="768"></canvas>
+		<div id="RightSide">
+			<div class="background-lighter-blue" id="CountInformation">
+				<label class="white-text" id="AvgECountLabel" for="AvgECount">Average e<sup>-</sup>/Shot:</label>
+				<input class="input-read" id="AvgECount" type="number" value="0" readonly />
+				<br />
+				<canvas id="eChart"></canvas>
+			</div>
+		</div>
 
 		<script src="../JS/LiveVideo.js"></script>
 	</body>
