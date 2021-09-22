@@ -25,6 +25,12 @@ function UpdateAverageDisplays() {
 	}
 }
 
+function UpdateScanDisplays() {
+	const TotalCount = document.getElementById("TotalECount");
+
+	TotalCount.value = scanInfo.getTotalCount();
+}
+
 // Receive message with centroid data
 ipc.on("LVImageUpdate", function (event, obj) {
 	// Will return with object containing:
@@ -45,6 +51,54 @@ ipc.on("LVImageUpdate", function (event, obj) {
 	// Update average counters
 	averageCount.update(obj.calcCenters);
 	UpdateAverageDisplays();
+
+	// Update scan display if a scan is running
+	if (scanInfo.running) {
+		scanInfo.update(obj.calcCenters);
+		UpdateScanDisplays();
+	}
+});
+
+// Receive message about the scan
+ipc.on("ScanUpdate", function (event, update) {
+	// The update will either be
+	// 		"start" - a scan was started
+	// 		"pause" - scan was paused
+	// 		"resume" - scan was resumed
+	// 		"stop" - scan was stopped
+
+	const TotalCountLabel = document.getElementById("TotalECountLabel");
+	const TotalCount = document.getElementById("TotalECount");
+
+	switch (update) {
+		case "start":
+			scanInfo.running = true;
+
+			// Reset the counters
+			scanInfo.reset();
+			UpdateScanDisplays();
+
+			// Make the total count display visible
+			TotalCountLabel.style.visibility = "visible";
+			TotalCount.style.visibility = "visible";
+			break;
+
+		case "pause":
+			scanInfo.running = false;
+			break;
+
+		case "resume":
+			scanInfo.running = true;
+			break;
+
+		case "stop":
+			scanInfo.running = false;
+
+			// Make the total count display hidden
+			TotalCountLabel.style.visibility = "hidden";
+			TotalCount.style.visibility = "hidden";
+			break;
+	}
 });
 
 const eChart = new Chart(document.getElementById("eChart").getContext("2d"), {
@@ -182,5 +236,60 @@ const averageCount = {
 	},
 	getTotalAverage: function () {
 		return this.getAverage(this.prevTotalCounts).toFixed(2);
+	},
+};
+
+const scanInfo = {
+	running: false, // running does not change if scan is paused
+	method: "normal", // Can be "normal" or "ir" // Need to add this in
+	frameCount: 0,
+	cclCount: 0,
+	hybridCount: 0,
+	totalCount: 0,
+	startScan: function () {
+		this.running = true;
+	},
+	stopScan: function () {
+		this.running = false;
+	},
+	update: function (calculatedCenters) {
+		let ccl = calculatedCenters[0].length;
+		let hybrid = calculatedCenters[1].length;
+		let total = ccl + hybrid;
+		// Add to counts
+		this.cclCount += ccl;
+		this.hybridCount += hybrid;
+		this.totalCount += total;
+		this.frameCount++;
+	},
+	reset: function () {
+		this.frameCount = 0;
+		this.cclCount = 0;
+		this.hybridCount = 0;
+		this.totalCount = 0;
+	},
+	getFrames: function () {
+		// Returns frame count as "X k" (e.g. 11 k for 11,000 frames)
+		// unless frame count is below 1,000
+		let frameString;
+		if (this.frameCount >= 1000) {
+			frameString = Math.round(this.frameCount / 1000) + " k";
+		} else {
+			frameString = this.frameCount.toString();
+		}
+		return frameString;
+	},
+	getTotalCount: function () {
+		// Returns total electron count in scientific notation
+		// unless total count is below 10,000
+		let countString;
+		if (this.totalCount >= 10000) {
+			countString = this.totalCount.toExponential(3).toString();
+			// Get rid of '+' in exponent
+			countString = countString.substr(0, countString.length - 2) + countString.slice(-1);
+		} else {
+			countString = this.totalCount.toString();
+		}
+		return countString;
 	},
 };

@@ -52,6 +52,12 @@ document.getElementById("Pause").onclick = function () {
 	// Pause scan button
 	// Toggle pause status (e.g. if running, pause; if paused, resume)
 	scanInfo.paused = !scanInfo.paused;
+	// Send message to Live View that scan was paused/resumed
+	if (scanInfo.paused) {
+		ipc.send("ScanUpdate", "pause");
+	} else {
+		ipc.send("ScanUpdate", "resume");
+	}
 	// Change Pause button text
 	UpdatePauseButtonText();
 	// Enable/disable Single Shot button
@@ -291,6 +297,9 @@ function StartSaveScan() {
 		i0NCounterUp.disabled = true;
 		i0NCounterDown.disabled = true;
 
+		// Send message to Live View that a scan was started
+		ipc.send("ScanUpdate", "start");
+
 		// Start centroiding (and auto-saving)
 		scanInfo.startScan();
 	} else {
@@ -309,6 +318,9 @@ function StartSaveScan() {
 		currentFile.disabled = false;
 		i0NCounterUp.disabled = false;
 		i0NCounterDown.disabled = false;
+
+		// Send message to Live View that the scan was stopped
+		ipc.send("ScanUpdate", "stop");
 
 		// Tick up increment counter
 		I0NCounterUp();

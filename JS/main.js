@@ -159,6 +159,10 @@ ipcMain.on("StopCentroiding", function (event, arg) {
 	invisibleWin.webContents.send("StopCentroiding", null);
 });
 
+ipcMain.on("ScanUpdate", function (event, update) {
+	LVWin.webContents.send("ScanUpdate", update);
+});
+
 // Relay centroid data to visible windows
 ipcMain.on("LVImageUpdate", function (event, arg) {
 	// arg is an object containing image and calculated centers

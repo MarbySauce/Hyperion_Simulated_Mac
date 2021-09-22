@@ -17,6 +17,10 @@ body {
 
 .white-text {
 	color: whitesmoke;
+	font-size: large;
+	width: 150px;
+	text-align: center;
+	padding: 5px 25%;
 }
 
 .background-lighter-blue {
@@ -28,11 +32,21 @@ body {
 	background: hsla(225, 20%, 80%, 1);
 	border: 1px solid hsla(225, 20%, 10%, 1);
 	border-radius: 3px;
+	font-size: large;
+	width: 150px;
+	height: 30px;
+	text-align: center;
+	margin: 3px 25%;
+	padding: 3px;
 }
 .input-read:focus-visible {
 	border: 1px solid hsla(225, 20%, 10%, 1);
 	outline: none;
 	outline-offset: 0;
+}
+
+.display-on-scan {
+	visibility: hidden;
 }
 
 #LiveVideoView {
@@ -48,6 +62,7 @@ body {
 
 #CountInformation {
 	padding: 20px;
+	display: block;
 }
 
 #eChart {
