@@ -7,7 +7,7 @@ let invisibleWin;
 
 // Way to quickly switch between monitors
 // 0 -> work monitor, 1 -> home monitor
-const thisMonitor = 0;
+const thisMonitor = 1;
 const monitor = [
 	[
 		[-1850, -200],
@@ -60,7 +60,7 @@ function createLVWindow() {
 	});
 
 	win.loadFile("HTML/LVWindow.html");
-	win.webContents.openDevTools();
+	//win.webContents.openDevTools();
 
 	return win;
 }
@@ -77,6 +77,7 @@ function createInvisibleWindow() {
 	});
 
 	win.loadFile("HTML/InvisibleWindow.html");
+	win.webContents.openDevTools();
 
 	return win;
 }

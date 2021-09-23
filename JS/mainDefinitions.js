@@ -7,8 +7,9 @@ const fs = require("fs");
 const ipc = require("electron").ipcRenderer;
 const Chart = require("chart.js");
 // Addon libraries
-const centroid = require("../build/Release/centroid");
-const autoSaveFile = require("../build/Release/autosavefile");
+//const centroid = require("../build/Release/centroid");
+//const autoSaveFile = require("../build/Release/autosavefile");
+//const camera = require("bindings")("camera");
 
 const eChart = new Chart(document.getElementById("eChart").getContext("2d"), {
 	type: "line",

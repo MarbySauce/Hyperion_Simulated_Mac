@@ -1,23 +1,30 @@
 {
-	"name": "mainscreen2",
+	"name": "hyperion",
 	"version": "1.0.0",
-	"description": "",
 	"main": "JS/main.js",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
 		"start": "electron .",
-		"rebuild": "node-gyp rebuild && electron-rebuild",
-		"install": "node-gyp rebuild",
-		"eRebuild": "electron-rebuild",
-		"nRebuild": "node-gyp rebuild"
+		"install": "node-gyp rebuild"
 	},
 	"author": "",
 	"license": "ISC",
 	"devDependencies": {
+		"bindings": "^1.5.0",
 		"electron": "^13.1.6",
-		"electron-rebuild": "^3.1.1"
+		"node-addon-api": "^4.2.0"
 	},
 	"dependencies": {
 		"chart.js": "^3.5.0"
-	}
+	},
+	"gypfile": true,
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MarbySauce/Hyperion.git"
+	},
+	"bugs": {
+		"url": "https://github.com/MarbySauce/Hyperion/issues"
+	},
+	"homepage": "https://github.com/MarbySauce/Hyperion#readme",
+	"description": ""
 }
